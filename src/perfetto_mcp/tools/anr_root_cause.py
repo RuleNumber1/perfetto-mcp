@@ -169,7 +169,7 @@ class AnrRootCauseTool(BaseTool):
         end_ns: int,
         notes: List[str],
     ) -> List[Dict[str, Any]]:
-        proc_filter = f"AND p.name GLOB '{process_name.replace("'", "''")}'" if process_name else ""
+        proc_filter = f"""AND p.name GLOB '{process_name.replace("'", "''")}'""" if process_name else ""
         sql = f"""
         SELECT
           ts.ts AS ts,
@@ -222,7 +222,7 @@ class AnrRootCauseTool(BaseTool):
         notes: List[str],
     ) -> List[Dict[str, Any]]:
         proc_filter = (
-            f"AND client_process GLOB '{process_name.replace("'", "''")}'" if process_name else ""
+            f"""AND client_process GLOB '{process_name.replace("'", "''")}'""" if process_name else ""
         )
         sql = f"""
         INCLUDE PERFETTO MODULE android.binder;
