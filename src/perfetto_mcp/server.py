@@ -61,27 +61,27 @@ def create_server() -> FastMCP:
         time_range: dict | None = None,
     ) -> str:
         """
-        Discover slices by name with flexible matching to quickly survey what's in a trace,
-        then get aggregates and linkable examples without writing SQL.
+        通过灵活的名称匹配发现切片，快速查看跟踪文件中的内容，
+        无需编写SQL即可获取聚合数据和可链接的示例。
 
-        WHY USE THIS:
-        - Explore unknown slice names and hot paths fast (no manual SQL).
-        - See frequency and duration stats (min/avg/max and p50/p90/p99 when available) per slice name.
-        - Get linkable examples (id, ts, dur, track_id) to jump in UI or correlate with other tools.
-        - Filter by process, main thread, and time range to narrow investigations.
+        使用场景：
+        - 快速探索未知切片名称和热点路径（无需手动编写SQL）
+        - 查看每个切片名称的频率和持续时间统计（最小值/平均值/最大值，以及可用的p50/p90/p99分位数）
+        - 获取可链接的示例（id、ts、dur、track_id）以便在UI中跳转或与其他工具关联
+        - 通过进程、主线程和时间范围筛选来缩小调查范围
 
-        PARAMETERS:
-        - pattern: String to match against slice names.
-        - match_mode: 'contains' (default), 'exact', or 'glob'.
-        - process_name: Optional filter; supports '*' wildcard.
-        - main_thread_only: Limit to process main threads.
-        - time_range: {'start_ms': X, 'end_ms': Y}.
-        - limit: Max example slices to return (default 100).
+        参数：
+        - pattern: 用于匹配切片名称的字符串
+        - match_mode: 'contains'（默认）、'exact' 或 'glob'
+        - process_name: 可选筛选器；支持 '*' 通配符
+        - main_thread_only: 限制为进程主线程
+        - time_range: {'start_ms': X, 'end_ms': Y}
+        - limit: 返回的最大示例切片数（默认100）
 
-        OUTPUT:
-        - aggregates: Per-slice-name counts and duration stats (min/avg/max, p50/p90/p99 when available).
-        - examples: Top slices by duration with thread/process context and track id for linking.
-        - notes: Capability or fallback notices.
+        输出：
+        - aggregates: 每个切片名称的计数和持续时间统计（最小值/平均值/最大值，以及可用的p50/p90/p99分位数）
+        - examples: 按持续时间排序的顶级切片，包含线程/进程上下文和用于链接的track_id
+        - notes: 功能或回退通知
         """
         return slice_finder_tool.find_slices(
             trace_path,
@@ -97,38 +97,36 @@ def create_server() -> FastMCP:
     @mcp.tool()
     def execute_sql_query(trace_path: str, sql_query: str, process_name: str | None = None) -> str:
         """
-        Execute PerfettoSQL scripts (multi-statement) on trace data for advanced analysis.
+        在跟踪数据上执行PerfettoSQL脚本（多语句）进行高级分析。
 
-        USE THIS WHEN: Other tools don't provide what you need, you need complex filtering/joins, 
-        or you want to correlate data across multiple tables. This is your power tool for custom 
-        analysis - use it when pre-built tools are too limiting.
+        使用场景：当其他工具无法满足需求时，需要复杂过滤/连接，或想要跨多个表关联数据时使用。
+        这是用于自定义分析的强大工具 - 当预构建工具过于局限时使用。
 
-        CAPABILITIES: Full SQL access to all trace tables including:
-        - slice: All trace slices with timing
-        - thread/process: Thread and process metadata
-        - counter: Performance counters over time
-        - android_anrs: ANR events
-        - actual_frame_timeline_slice: Frame jank data
-        - sched_slice: CPU scheduling information
-        - android_binder_txns: Cross-process calls
-        - heap_graph_*: Memory heap analysis
+        功能：完全SQL访问所有跟踪表，包括：
+        - slice：包含时序的所有跟踪片段
+        - thread/process：线程和进程元数据
+        - counter：随时间变化的性能计数器
+        - android_anrs：ANR事件
+        - actual_frame_timeline_slice：帧卡顿数据
+        - sched_slice：CPU调度信息
+        - android_binder_txns：跨进程调用
+        - heap_graph_*：内存堆分析
 
-        SECURITY: Accepts full PerfettoSQL/SQLite scripts. No automatic LIMIT is applied; large
-        queries may return many rows. The script is executed verbatim by TraceProcessor.
+        安全性：接受完整的PerfettoSQL/SQLite脚本。不自动应用LIMIT；大型查询可能返回多行。
+        脚本由TraceProcessor逐字执行。
 
-        COMMON PATTERNS:
-        - Duration analysis: "SELECT name, dur/1e6 as ms FROM slice WHERE dur > 10e6"
-        - Aggregation: "SELECT name, COUNT(*), AVG(dur)/1e6 FROM slice GROUP BY name"
-        - Time filtering: "SELECT * FROM slice WHERE ts BETWEEN 1e9 AND 2e9"
-        - Process filtering: "SELECT * FROM thread WHERE upid IN (SELECT upid FROM process WHERE name LIKE '%chrome%')"
+        常见模式：
+        - 持续时间分析："SELECT name, dur/1e6 as ms FROM slice WHERE dur > 10e6"
+        - 聚合："SELECT name, COUNT(*), AVG(dur)/1e6 FROM slice GROUP BY name"
+        - 时间过滤："SELECT * FROM slice WHERE ts BETWEEN 1e9 AND 2e9"
+        - 进程过滤："SELECT * FROM thread WHERE upid IN (SELECT upid FROM process WHERE name LIKE '%chrome%')"
 
-        POWER USER TIP: Use `INCLUDE PERFETTO MODULE ...` statements to load standard library
-        modules (supports wildcards like `android.*`). You can also use `CREATE PERFETTO TABLE`/
-        `VIEW`/`FUNCTION`/`MACRO`/`INDEX` where supported by TraceProcessor.
+        高级用户提示：使用`INCLUDE PERFETTO MODULE ...`语句加载标准库模块（支持通配符如`android.*`）。
+        也可以在TraceProcessor支持的情况下使用`CREATE PERFETTO TABLE`/`VIEW`/`FUNCTION`/`MACRO`/`INDEX`。
 
-        References:
-        - PerfettoSQL Syntax: https://perfetto.dev/docs/analysis/perfetto-sql-syntax
-        - Standard Library (Prelude): https://perfetto.dev/docs/analysis/stdlib-docs#package-prelude
+        参考：
+        - PerfettoSQL语法：https://perfetto.dev/docs/analysis/perfetto-sql-syntax
+        - 标准库（预置）：https://perfetto.dev/docs/analysis/stdlib-docs#package-prelude
         """
         return sql_query_tool.execute_sql_query(trace_path, sql_query, process_name)
 
@@ -136,47 +134,44 @@ def create_server() -> FastMCP:
     @mcp.tool()
     def detect_anrs(trace_path: str, process_name: str | None = None, min_duration_ms: int = 5000, time_range: dict | None = None) -> str:
         """
-        USE THIS WHEN: Investigating app freezes, unresponsiveness, "not responding" dialogs, 
-        or user complaints about app hangs. ANRs are critical issues where the main thread 
-        is blocked for >5 seconds, causing Android to consider killing the app.
+        使用场景：调查应用冻结、无响应、"未响应"对话框或用户关于应用卡顿的投诉。
+        ANR是严重问题，主线程被阻塞超过5秒，导致Android考虑杀死应用。
 
-        PROVIDES: Complete ANR list with severity assessment based on main thread state and 
-        system conditions. Each ANR includes garbage collection pressure analysis to identify 
-        memory-related causes.
+        提供：完整的ANR列表，基于主线程状态和系统条件进行严重性评估。
+        每个ANR包含垃圾回收压力分析，以识别内存相关原因。
 
-        FILTERS:
-        - process_name: Target app (supports wildcards: "com.example.*", "*browser*")
-        - time_range: {'start_ms': X, 'end_ms': Y} to focus on specific periods
+        过滤器：
+        - process_name: 目标应用（支持通配符："com.example.*", "*browser*"）
+        - time_range: {'start_ms': X, 'end_ms': Y} 用于聚焦特定时间段
 
-        ANR ANALYSIS CONTEXT: ANRs are critical performance issues that directly impact user 
-        experience. They typically occur due to:
-        - Main thread blocking operations (I/O, network, database)
-        - Lock contention and synchronization issues
-        - Memory pressure causing excessive GC
-        - Binder transaction delays
-        - CPU-intensive operations on the main thread
+        ANR分析背景：ANR是直接影响用户体验的关键性能问题。通常由以下原因引起：
+        - 主线程阻塞操作（I/O、网络、数据库）
+        - 锁竞争和同步问题
+        - 内存压力导致过度GC
+        - Binder事务延迟
+        - 主线程上的CPU密集型操作
 
-        OUTPUT: 
-        - Timestamp and process information for each ANR
-        - Main thread state (last known state at ANR ts)
-        - GC event count near ANR (>10 events = memory pressure)
-        - Severity heuristic: CRITICAL if GC>10; HIGH if main thread in sleep/IO wait or moderate GC; 
-          MEDIUM otherwise (system-critical processes escalate severity)
+        输出：
+        - 每个ANR的时间戳和进程信息
+        - 主线程状态（ANR时间点的最后已知状态）
+        - ANR附近的GC事件计数（>10个事件表示内存压力）
+        - 严重性启发式：GC>10为CRITICAL；主线程处于sleep/IO等待或中等GC为HIGH；
+          其他情况为MEDIUM（系统关键进程会提升严重性）
 
-        NEXT STEPS: 
-        1. Use anr_root_cause_analyzer with ANR timestamp for deep analysis
-        2. Check thread_contention_analyzer for lock-related causes
-        3. Run binder_transaction_profiler if ANR involves system services
+        后续步骤：
+        1. 使用anr_root_cause_analyzer和ANR时间戳进行深度分析
+        2. 检查thread_contention_analyzer以查找锁相关原因
+        3. 如果ANR涉及系统服务，运行binder_transaction_profiler
 
-        INTERPRETATION: Multiple ANRs in short time = systemic issue. Single ANR = investigate 
-        specific timestamp. No ANRs doesn't guarantee good performance - check jank metrics too.
+        解释：短时间内多个ANR = 系统性问题。单个ANR = 调查特定时间戳。
+        没有ANR不保证良好性能 - 还需检查卡顿指标。
 
-        - Requires 'android.anrs' data source in the trace; otherwise returns ANR_DATA_UNAVAILABLE
-        - Ensure the trace contains Android performance data
-        - High ANR counts indicate systemic performance issues requiring investigation
-        - Correlate ANR timestamps with other performance metrics (frame drops, memory pressure)
-        - For detailed root cause analysis, use execute_sql_query() with ANR timestamps
-        - Zero ANRs doesn't mean good performance - check trace coverage and data sources
+        - 需要跟踪中包含'android.anrs'数据源；否则返回ANR_DATA_UNAVAILABLE
+        - 确保跟踪包含Android性能数据
+        - 高ANR计数表示需要调查的系统性性能问题
+        - 将ANR时间戳与其他性能指标（掉帧、内存压力）关联
+        - 详细根因分析请使用execute_sql_query()和ANR时间戳
+        - 零ANR不意味着良好性能 - 检查跟踪覆盖率和数据源
         """
         return anr_detection_tool.detect_anrs(trace_path, process_name, min_duration_ms, time_range)
 
@@ -191,39 +186,39 @@ def create_server() -> FastMCP:
         deep_analysis: bool = False,
     ) -> str:
         """
-        Comprehensive root cause analysis for ANR events using multi-signal correlation.
+        使用多信号关联对 ANR 事件进行全面的根本原因分析。
 
-        USE THIS WHEN: After detect_anrs finds an ANR, investigating a known freeze timestamp, 
-        or when users report specific times when the app became unresponsive. This tool looks 
-        at a ±10 second window around the issue to identify root causes.
+        使用场景：在 detect_anrs 发现 ANR 后，调查已知的冻结时间戳，
+        或当用户报告应用变得无响应的特定时间时使用。此工具查看
+        问题周围的 ±10 秒窗口以识别根本原因。
 
-        ANALYZES FOUR KEY SIGNALS:
-        1. Main thread blocking: Long non-running states (I/O wait, sleeping) preventing UI updates
-        2. Binder delays: Slow IPC calls to system services (>100ms transactions)
-        3. Memory pressure: Low available memory forcing excessive GC
-        4. Lock contention: Java synchronized blocks causing thread waits
+        分析四个关键信号：
+        1. 主线程阻塞：长时间的非运行状态（I/O 等待、睡眠）阻止 UI 更新
+        2. Binder 延迟：到系统服务的慢速 IPC 调用（>100ms 事务）
+        3. 内存压力：低可用内存强制进行过多 GC
+        4. 锁竞争：Java 同步块导致线程等待
 
-        PARAMETERS:
-        - process_name: Target process (required for some analyses)
-        - anr_timestamp_ms OR time_range: The moment to investigate
-        - analysis_window_ms: Context window size (default ±10 seconds)
-        - deep_analysis: true for enhanced correlation insights
-        - Validation: If both anr_timestamp_ms and time_range are provided, the timestamp must 
-          lie within the time_range or the tool returns INVALID_PARAMETERS
+        参数：
+        - process_name: 目标进程（某些分析需要）
+        - anr_timestamp_ms 或 time_range: 要调查的时刻
+        - analysis_window_ms: 上下文窗口大小（默认 ±10 秒）
+        - deep_analysis: true 表示增强的关联洞察
+        - 验证：如果同时提供了 anr_timestamp_ms 和 time_range，时间戳必须
+          位于 time_range 内，否则工具返回 INVALID_PARAMETERS
 
-        OUTPUT INSIGHTS:
-        - "likelyCauses": Ranked list of probable root causes
-        - "rationale": Explanation of why each cause was identified
-        - Detailed data for each signal type
-        - Correlation notes when multiple causes interact
+        输出洞察：
+        - "likelyCauses": 可能根本原因的排名列表
+        - "rationale": 解释每个原因被识别的原因
+        - 每种信号类型的详细数据
+        - 多个原因交互时的关联说明
 
-        STRENGTH: Unlike single-signal tools, this correlates multiple data sources to identify 
-        the true root cause. For example, it can distinguish between "ANR due to lock contention 
-        during GC" vs "ANR due to slow binder call" vs "ANR due to CPU starvation".
+        优势：与单信号工具不同，此工具关联多个数据源以识别
+        真正的根本原因。例如，它可以区分"GC 期间的锁竞争导致的 ANR"
+        与"慢速 binder 调用导致的 ANR"与"CPU 饥饿导致的 ANR"。
 
-        TYPICAL FINDING: Most ANRs are caused by main thread lock contention or synchronous 
-        binder calls, not CPU overload. Requires binder and monitor_contention modules in the 
-        trace for those signals; missing modules are reported in 'notes'.
+        典型发现：大多数 ANR 是由主线程锁竞争或同步
+        binder 调用引起的，而不是 CPU 过载。需要跟踪中的 binder 和 monitor_contention
+        模块来获取这些信号；缺失的模块在 'notes' 中报告。
         """
         return anr_root_cause_tool.anr_root_cause_analyzer(
             trace_path,
