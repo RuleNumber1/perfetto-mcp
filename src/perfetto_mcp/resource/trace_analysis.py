@@ -17,7 +17,7 @@ def register_trace_analysis_resource(mcp: FastMCP) -> None:
         "resource://perfetto-docs/trace-analysis-getting-started",
         name="perfetto-trace-analysis-getting-started",
         title="Perfetto Trace Analysis Getting Started",
-        description="Official Perfetto documentation for getting started with trace analysis workflow and tools.",
+        description="官方Perfetto文档：快速入门追踪分析工作流和工具",
         mime_type="text/markdown",
     )
     def get_trace_analysis_docs() -> str:

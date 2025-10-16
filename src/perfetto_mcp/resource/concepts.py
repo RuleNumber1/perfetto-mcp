@@ -22,7 +22,7 @@ def _read_concepts_markdown() -> str:
         if packaged_concepts.is_file():
             return packaged_concepts.read_text(encoding="utf-8")
     except Exception as e:
-        logger.debug(f"Packaged concepts read failed, will try dev fallback: {e}")
+        logger.debug(f"包概念介绍文件读取失败, 即将尝试dev回退操作: {e}")
 
     # 开发环境回退
     try:
@@ -30,7 +30,7 @@ def _read_concepts_markdown() -> str:
         concepts_file = (repo_root / "docs" / "Perfetto-MCP-Concepts.md").resolve()
         return concepts_file.read_text(encoding="utf-8")
     except Exception as e:
-        logger.warning(f"Failed to read concepts doc from both packaged and dev paths: {e}")
+        logger.warning(f"从包和dev路径下读取概念文档失败: {e}")
         raise
 
 
@@ -46,7 +46,7 @@ def register_concepts_resource(mcp: FastMCP) -> None:
         "resource://perfetto-mcp/concepts",
         name="perfetto-mcp-concepts",
         title="Perfetto MCP Concepts",
-        description="Reference guide for Perfetto trace analysis and MCP usage.",
+        description="对Perfetto追踪分析和MCP工具用途的参考指导",
         mime_type="text/markdown",
     )
     def read_concepts() -> str:

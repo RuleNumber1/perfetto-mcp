@@ -64,17 +64,17 @@ class ConnectionManager:
         """
         try:
             tp = TraceProcessor(trace=trace_path)
-            logger.info(f"Successfully connected to trace: {trace_path}")
+            logger.info(f"成功连接到perfetto文件: {trace_path}")
             return tp
         except FileNotFoundError as e:
-            logger.error(f"Trace file not found: {trace_path}")
+            logger.error(f"未找到perfetto文件: {trace_path}，请使用绝对路径")
             raise FileNotFoundError(
-                f"Failed to open the trace file. Please double-check the trace_path "
-                f"you supplied. Underlying error: {e}"
+                f"打开perfetto文件失败。 请检查你提供的文件路径是否为相对路径 "
+                f"报错信息: {e}"
             )
         except Exception as e:
-            logger.error(f"Failed to connect to trace: {trace_path}, error: {e}")
-            raise ConnectionError(f"Could not connect to trace processor: {e}")
+            logger.error(f"无法连接到perfetto文件: {trace_path}, error: {e}")
+            raise ConnectionError(f"无法连接到perfetto处理程序: {e}")
     
     def _is_connection_healthy(self) -> bool:
         """检查当前连接是否健康。
@@ -92,7 +92,7 @@ class ConnectionManager:
             list(qr_it)
             return True
         except Exception as e:
-            logger.warning(f"连接健康检查失败: {e}")
+            logger.warning(f"连接健康度检查失败: {e}")
             return False
     
     def _reconnect(self, trace_path: str) -> TraceProcessor:
@@ -119,7 +119,7 @@ class ConnectionManager:
         Returns:
             TraceProcessor: 新连接
         """
-        logger.info(f"尝试重新连接到 {trace_path}")
+        logger.info(f"尝试重新连接到 {trace_path}，如果失败请使用文件的绝对路径")
         
         # 关闭现有连接
         self._close_current_unsafe()
@@ -143,10 +143,10 @@ class ConnectionManager:
         """不获取锁关闭当前连接（仅供内部使用）。"""
         if self._current_connection is not None:
             try:
-                logger.info(f"Closing connection to {self._current_trace_path}")
+                logger.info(f"关闭与perfetto文件{self._current_trace_path}的连接")
                 self._current_connection.close()
             except Exception as e:
-                logger.warning(f"Error closing connection: {e}")
+                logger.warning(f"关闭连接失败: {e}")
             finally:
                 self._current_connection = None
                 self._current_trace_path = None
