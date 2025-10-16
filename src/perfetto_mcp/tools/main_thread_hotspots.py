@@ -1,7 +1,7 @@
-"""Main-thread hotspot slices tool.
+"""主线程热点切片工具。
 
-Surfaces the longest-running slices on a process's main thread to accelerate
-ANR and jank triage. Returns linkable rows with rich context and metadata.
+展示进程主线程上运行时间最长的切片，以加速
+ANR和卡顿的排查。返回带有丰富上下文和元数据的可链接行。
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class MainThreadHotspotTool(BaseTool):
-    """Tool for identifying heaviest main-thread work within a process."""
+    """用于识别进程中最重的主线程工作的工具。"""
 
     def main_thread_hotspot_slices(
         self,
@@ -25,25 +25,25 @@ class MainThreadHotspotTool(BaseTool):
         time_range: Optional[Dict[str, float | int]] = None,
         min_duration_ms: Optional[float | int] = None,
     ) -> str:
-        """Return top-N longest slices on the main thread for a process.
+        """返回进程主线程上最长的前N个切片。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Target process name (supports GLOB, e.g. "com.example.*").
+            目标进程名称(支持GLOB，例如"com.example.*")。
         limit : int, optional
-            Maximum number of hotspot slices to return (1..500). Defaults to 80.
+            要返回的热点切片的最大数量(1..500)。默认为80。
         time_range : dict | None, optional
-            Optional time bounds: { 'start_ms': X, 'end_ms': Y }.
+            可选时间边界：{ 'start_ms': X, 'end_ms': Y }。
         min_duration_ms : float | int | None, optional
-            Optional threshold to only include slices with duration >= threshold.
+            可选阈值，仅包含持续时间>=阈值的切片。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with result payload containing hotspots, filters and notes.
+            包含热点、过滤器和说明的结果负载的JSON信封。
         """
 
         def _validate_and_normalize() -> Tuple[str, int, Optional[Tuple[int, int]], Optional[int], List[str]]:
@@ -52,9 +52,9 @@ class MainThreadHotspotTool(BaseTool):
             if not process_name or not isinstance(process_name, str):
                 raise ToolError("INVALID_PARAMETERS", "process_name must be a non-empty string")
 
-            # Escape quotes for SQL string literal
+            # 转义SQL字符串字面量中的引号
             safe_proc = process_name.replace("'", "''").strip()
-            # If caller didn't include wildcard, wrap with * for contains-like ergonomics
+            # 如果调用者没有包含通配符，则用*包装以实现类似包含的易用性
             if "*" not in safe_proc:
                 safe_proc = f"*{safe_proc}*"
 
@@ -111,7 +111,7 @@ class MainThreadHotspotTool(BaseTool):
             if use_is_main_thread:
                 where_clauses.append("th.is_main_thread = 1")
             else:
-                # Fallback heuristic: main thread where tid == pid
+                # 回退启发式：tid == pid的主线程
                 where_clauses.append("th.tid = p.pid")
 
             if time_bounds_ns is not None:
@@ -122,8 +122,8 @@ class MainThreadHotspotTool(BaseTool):
 
             where_sql = " AND ".join(where_clauses)
 
-            # Only consider thread tracks to ensure thread context exists
-            # Join track for display name and category
+            # 仅考虑线程轨道以确保线程上下文存在
+            # 连接轨道以获取显示名称和类别
             query = (
                 "SELECT\n"
                 "  s.id AS slice_id,\n"

@@ -1,4 +1,4 @@
-"""Frame performance summary tool using per-frame metrics."""
+"""使用每帧指标的帧性能摘要工具。"""
 
 from __future__ import annotations
 
@@ -11,27 +11,27 @@ logger = logging.getLogger(__name__)
 
 
 class FramePerformanceSummaryTool(BaseTool):
-    """Aggregated frame performance summary with jank statistics.
+    """带有卡顿统计信息的聚合帧性能摘要。
 
-    Uses Android per-frame metrics to compute jank counts, jank rate, and CPU time
-    statistics (avg, max, p95, p99). Requires frame timeline + per-frame metrics
-    to be present in the trace.
+    使用Android每帧指标计算卡顿计数、卡顿率和CPU时间
+    统计信息(平均值、最大值、p95、p99)。需要跟踪文件中
+    存在帧时间线和每帧指标。
     """
 
     def frame_performance_summary(self, trace_path: str, process_name: str) -> str:
-        """Summarize frame performance for a given process.
+        """汇总给定进程的帧性能。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Exact process name to analyze (as stored in the trace).
+            要分析的精确进程名称(如跟踪文件中存储的)。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields:
+            包含字段的JSON信封：
             - processName, tracePath, success, error, result
             - result: {
                 total_frames, jank_frames, jank_rate_percent,
@@ -47,8 +47,8 @@ class FramePerformanceSummaryTool(BaseTool):
 
             safe_proc = process_name.replace("'", "''")
 
-            # Use SUM over CASE to avoid dialect-dependent boolean count semantics.
-            # Guard division by zero for empty traces.
+            # 使用SUM over CASE避免依赖于方言的布尔计数语义。
+            # 保护空跟踪的除零错误。
             sql = f"""
             INCLUDE PERFETTO MODULE android.frames.per_frame_metrics;
 
@@ -89,7 +89,7 @@ class FramePerformanceSummaryTool(BaseTool):
 
             try:
                 qr_it = tp.query(sql)
-                # Expect exactly one row summary; default to zeros if none
+                # 期望恰好一行摘要；如果没有则默认为零
                 summary: Dict[str, Any] = {
                     "total_frames": 0,
                     "jank_frames": 0,
@@ -105,7 +105,7 @@ class FramePerformanceSummaryTool(BaseTool):
                 }
 
                 for row in qr_it:
-                    # Pull attributes safely; Perfetto rows expose columns as attributes
+                    # 安全地提取属性；Perfetto行将列公开为属性
                     summary = {
                         "total_frames": getattr(row, "total_frames", 0) or 0,
                         "jank_frames": getattr(row, "jank_frames", 0) or 0,

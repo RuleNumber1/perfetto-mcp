@@ -1,12 +1,12 @@
-"""ANR Root Cause Analyzer tool.
+"""ANR根因分析工具。
 
-Correlates multiple signals around an ANR time window to surface likely causes:
-- Main-thread blocking (thread_state)
-- Slow Binder transactions (android.binder)
-- Memory pressure (MemAvailable at start/end of window)
-- Java monitor contention (android.monitor_contention)
+关联ANR时间窗口周围的多个信号以发现可能的原因：
+- 主线程阻塞(thread_state)
+- 慢速Binder事务(android.binder)
+- 内存压力(窗口开始/结束时的MemAvailable)
+- Java监视器争用(android.monitor_contention)
 
-Returns a unified JSON envelope via BaseTool.run_formatted().
+通过BaseTool.run_formatted()返回统一的JSON信封。
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class AnrRootCauseTool(BaseTool):
-    """Tool for analyzing likely ANR root causes within a window."""
+    """用于分析窗口内可能的ANR根因的工具。"""
 
     def anr_root_cause_analyzer(
         self,
@@ -31,28 +31,28 @@ class AnrRootCauseTool(BaseTool):
         time_range: Optional[Dict[str, int]] = None,
         deep_analysis: bool = False,
     ) -> str:
-        """Analyze likely ANR root causes for a process and time window.
+        """分析进程和时间窗口内可能的ANR根因。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str | None
-            Process filter (supports GLOB). If None, analyzes without process filter where possible.
+            进程过滤器(支持GLOB)。如果为None，则在可能的情况下进行无进程过滤器分析。
         anr_timestamp_ms : int | None
-            Anchor timestamp in milliseconds from trace start.
+            从跟踪开始算起的锚点时间戳(毫秒)。
         analysis_window_ms : int
-            Half-window size around anchor (default 10,000 ms). Used if `time_range` not provided.
+            锚点周围的半窗口大小(默认10,000毫秒)。如果未提供`time_range`则使用。
         time_range : dict | None
-            Explicit time range: { 'start_ms': int, 'end_ms': int }.
+            显式时间范围：{ 'start_ms': int, 'end_ms': int }。
         deep_analysis : bool
-            If True, strengthens heuristics and may compute additional notes.
+            如果为True，则加强启发式并可能计算额外的注释。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields: processName, tracePath, success, error, result
-            result shape:
+            包含字段的JSON信封：processName, tracePath, success, error, result
+            结果形状：
               {
                 window: { startMs, endMs },
                 filters: { process_name },
@@ -66,10 +66,10 @@ class AnrRootCauseTool(BaseTool):
         """
 
         def _op(tp):
-            # Resolve time window
+            # 解析时间窗口
             start_ms, end_ms = self._resolve_window(anr_timestamp_ms, analysis_window_ms, time_range)
 
-            # If both provided, enforce containment rule
+            # 如果两者都提供，则强制执行包含规则
             if time_range and anr_timestamp_ms is not None:
                 if not (start_ms <= int(anr_timestamp_ms) <= end_ms):
                     raise ToolError(
@@ -81,7 +81,7 @@ class AnrRootCauseTool(BaseTool):
 
             notes: List[str] = []
 
-            # Queries
+            # 查询
             main_thread_blocks = self._query_main_thread_blocks(tp, process_name, start_ns, end_ns, notes)
             binder_delays = self._query_binder_delays(tp, process_name, start_ns, end_ns, notes)
             mem_start = self._query_mem_available(tp, ts_ns_bound=start_ns, notes=notes)

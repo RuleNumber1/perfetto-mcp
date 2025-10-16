@@ -1,4 +1,4 @@
-"""Module entrypoint for `python -m perfetto_mcp`."""
+"""模块入口点，用于 `python -m perfetto_mcp`。"""
 
 from . import main
 

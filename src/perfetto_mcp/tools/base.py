@@ -1,4 +1,4 @@
-"""Base tool class for all Perfetto MCP tools."""
+"""所有Perfetto MCP工具的基础工具类。"""
 
 import json
 import logging
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class ToolError(Exception):
-    """Custom exception carrying a structured error code and message."""
+    """携带结构化错误代码和消息的自定义异常。"""
 
     def __init__(self, code: str, message: str, details: Optional[str] = None):
         super().__init__(message)
@@ -19,36 +19,36 @@ class ToolError(Exception):
 
 
 class BaseTool:
-    """Base class for all Perfetto tools with connection management and formatting."""
+    """所有具有连接管理和格式化的Perfetto工具的基础类。"""
 
     def __init__(self, connection_manager: ConnectionManager):
-        """Initialize the tool with a connection manager.
+        """使用连接管理器初始化工具。
 
-        Args:
-            connection_manager: Shared connection manager instance
+        参数：
+            connection_manager: 共享连接管理器实例
         """
         self.connection_manager = connection_manager
 
     def execute_with_connection(self, trace_path: str, operation: Callable) -> Any:
-        """Execute operation with managed connection and auto-reconnection.
+        """使用托管连接和自动重连接执行操作。
 
-        Args:
-            trace_path: Path to the trace file
-            operation: Function that takes a TraceProcessor and returns a result
+        参数：
+            trace_path: 跟踪文件路径
+            operation: 接受TraceProcessor并返回结果的函数
 
-        Returns:
-            Any: Result from the operation
+        返回：
+            Any: 操作的结果
 
-        Raises:
-            FileNotFoundError: If trace file doesn't exist
-            ConnectionError: If connection fails
-            Exception: Any other errors from the operation
+        抛出：
+            FileNotFoundError: 如果跟踪文件不存在
+            ConnectionError: 如果连接失败
+            Exception: 操作中的任何其他错误
         """
         try:
             tp = self.connection_manager.get_connection(trace_path)
             return operation(tp)
         except (ConnectionError, Exception) as e:
-            # Check if this is a connection-related error that might benefit from reconnection
+            # 检查是否为可能从重连接中受益的连接相关错误
             if self._should_retry_on_error(e):
                 logger.info(f"Attempting reconnection due to error: {e}")
                 try:
@@ -63,23 +63,23 @@ class BaseTool:
                 raise e
 
     def _should_retry_on_error(self, error: Exception) -> bool:
-        """Determine if an error should trigger a reconnection attempt.
+        """确定错误是否应触发重连接尝试。
 
-        Args:
-            error: The exception that occurred
+        参数：
+            error: 发生的异常
 
-        Returns:
-            bool: True if reconnection should be attempted
+        返回：
+            bool: 如果应尝试重连接则为True
         """
-        # Don't retry for file not found errors
+        # 对于文件未找到错误不重试
         if isinstance(error, FileNotFoundError):
             return False
 
-        # Retry for connection errors or other exceptions that might be connection-related
+        # 对于连接错误或其他可能为连接相关的异常进行重试
         if isinstance(error, ConnectionError):
             return True
 
-        # Check if error message suggests connection issues
+        # 检查错误消息是否暗示连接问题
         error_str = str(error).lower()
         connection_indicators = [
             'connection', 'broken pipe', 'socket', 'network', 'timeout',
@@ -93,7 +93,7 @@ class BaseTool:
         return False
 
     # -------------------------
-    # Unified response helpers
+    # 统一响应助手
     # -------------------------
     def _make_envelope(
         self,
@@ -104,7 +104,7 @@ class BaseTool:
         result: Optional[Dict[str, Any]] = None,
         error: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Create the standard response envelope."""
+        """创建标准响应信封。"""
         return {
             "processName": process_name or "not-specified",
             "tracePath": trace_path,
@@ -114,7 +114,7 @@ class BaseTool:
         }
 
     def _error(self, code: str, message: str, details: Optional[str] = None) -> Dict[str, Any]:
-        """Create a standardized error object."""
+        """创建标准化的错误对象。"""
         err: Dict[str, Any] = {"code": code, "message": message}
         if details:
             err["details"] = details
@@ -126,7 +126,7 @@ class BaseTool:
         process_name: Optional[str],
         op: Callable[[Any], Dict[str, Any]],  # (tp) -> Dict[str, Any] (result payload)
     ) -> str:
-        """Run an operation with connection management and return a JSON envelope string."""
+        """使用连接管理运行操作并返回JSON信封字符串。"""
         try:
             def wrapped(tp):
                 result = op(tp)

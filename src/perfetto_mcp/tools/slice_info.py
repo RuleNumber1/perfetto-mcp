@@ -1,4 +1,4 @@
-"""Slice info tool for filtering slices by name."""
+"""按名称过滤切片的切片信息工具。"""
 
 import logging
 from typing import Optional, Any, Dict, List
@@ -8,17 +8,17 @@ logger = logging.getLogger(__name__)
 
 
 class SliceInfoTool(BaseTool):
-    """Tool for retrieving information about slices with a given name."""
+    """用于检索具有给定名称的切片信息的工具。"""
 
     def get_slice_info(self, trace_path: str, slice_name: str, process_name: Optional[str] = None) -> str:
-        """Filter and summarize all occurrences of a slice by exact name.
+        """按精确名称过滤和汇总切片的所有出现。
 
-        Returns a unified JSON envelope with:
+        返回一个统一的JSON信封，包含：
         - sliceName
         - totalCount
         - durationSummary: { minMs, avgMs, maxMs }
         - timeBounds: { earliestTsMs, latestTsMs, spanMs }
-        - examples: Top N longest slices (default 50) with context
+        - examples: 前N个最长的切片(默认50个)及其上下文
         """
 
         def _to_ms(value_ns: Optional[int | float]) -> Optional[float]:
@@ -30,11 +30,11 @@ class SliceInfoTool(BaseTool):
                 return None
 
         def _get_slice_info_operation(tp):
-            """Internal operation to get slice info and build result payload."""
-            # Basic sanitization for embedding into SQL string
+            """内部操作，用于获取切片信息并构建结果负载。"""
+            # 嵌入SQL字符串的基本清理
             safe_name = slice_name.replace("'", "''")
 
-            # 1) Summary and time bounds (global across processes), case-insensitive name match
+            # 1) 摘要和时间边界(跨进程全局)，不区分大小写的名称匹配
             summary_query = (
                 "SELECT "
                 "  COUNT(*) AS total_count, "
@@ -68,7 +68,7 @@ class SliceInfoTool(BaseTool):
             except Exception as e:
                 logger.warning(f"Summary query failed: {e}")
 
-            # 2) Examples: top-N longest with context
+            # 2) 示例：前N个最长的切片及其上下文
             max_examples = 50
             examples_query = (
                 "WITH candidates AS (\n"
@@ -102,7 +102,7 @@ class SliceInfoTool(BaseTool):
                 f"LIMIT {max_examples};"
             )
 
-            # 3) Similar names (wildcard contains), case-insensitive
+            # 3) 相似名称(通配符包含)，不区分大小写
             other_slices: List[str] = []
             other_slices_query = (
                 "SELECT name, COUNT(*) AS cnt\n"
@@ -136,7 +136,7 @@ class SliceInfoTool(BaseTool):
             except Exception as e:
                 logger.warning(f"Examples query failed: {e}")
 
-            # Collect other slices withsimilar names
+            # 收集具有相似名称的其他切片
             try:
                 for row in tp.query(other_slices_query):
                     name_val = getattr(row, "name", None)

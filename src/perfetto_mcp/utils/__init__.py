@@ -1,4 +1,4 @@
-"""Perfetto MCP Utils - Helper utilities for trace processing."""
+"""Perfetto MCP 工具 - 用于跟踪处理的辅助工具。"""
 
 from .query_helpers import add_limit_to_query, validate_sql_query
 

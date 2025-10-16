@@ -1,6 +1,6 @@
-"""Slice finder tool for discovering slices via flexible patterns.
+"""切片查找工具，通过灵活模式发现切片。
 
-Provides aggregated statistics and example slices without requiring manual SQL.
+提供聚合统计信息和示例切片，无需手动编写SQL。
 """
 
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class SliceFinderTool(BaseTool):
-    """Tool for discovering slices matching a pattern with optional filters."""
+    """用于发现匹配模式的切片并带有可选过滤器的工具。"""
 
     def find_slices(
         self,
@@ -24,19 +24,19 @@ class SliceFinderTool(BaseTool):
         main_thread_only: bool = False,
         time_range: Optional[Dict[str, float | int]] = None,
     ) -> str:
-        """Find slices by name using flexible matching and return aggregates + examples.
+        """使用灵活匹配按名称查找切片并返回聚合+示例。
 
-        Args:
-            trace_path: Path to the trace file.
-            pattern: Slice name pattern to match. Required and non-empty.
-            process_name: Optional process name filter. Supports wildcards ('*' or '%').
-            match_mode: One of {'contains', 'exact', 'glob'}. Defaults to 'contains'.
-            limit: Max number of example slices to return (1..50). Defaults to 50.
-            main_thread_only: If true, only include slices from process main threads.
-            time_range: Optional dict with {'start_ms': X, 'end_ms': Y} bounds.
+        参数：
+            trace_path: 跟踪文件路径。
+            pattern: 要匹配的切片名称模式。必需且非空。
+            process_name: 可选的进程名称过滤器。支持通配符('*'或'%')。
+            match_mode: {'contains', 'exact', 'glob'}之一。默认为'contains'。
+            limit: 要返回的示例切片的最大数量(1..50)。默认为50。
+            main_thread_only: 如果为true，则仅包含进程主线程的切片。
+            time_range: 带有{'start_ms': X, 'end_ms': Y}边界的可选字典。
 
-        Returns:
-            JSON envelope string with result payload:
+        返回：
+            包含结果负载的JSON信封字符串：
             {
               "matchMode": str,
               "filters": {...},
@@ -51,7 +51,7 @@ class SliceFinderTool(BaseTool):
             }
         """
 
-        # Validate inputs early and build operation for connection execution
+        # 及早验证输入并为连接执行构建操作
         def _validate_and_normalize() -> Tuple[str, str, int, Optional[Tuple[int, int]], List[str]]:
             notes: List[str] = []
 
@@ -67,7 +67,7 @@ class SliceFinderTool(BaseTool):
                     f"Unsupported match_mode '{match_mode}'. Supported: contains|exact|glob",
                 )
 
-            # Clamp limit to a safe range
+            # 将限制限制在安全范围内
             try:
                 limit_int = int(limit)
             except Exception:
@@ -95,7 +95,7 @@ class SliceFinderTool(BaseTool):
                 time_bounds_ns = (start_ns, end_ns)
 
             if match_mode == "glob":
-                notes.append("GLOB match is case-sensitive per SQLite semantics")
+                notes.append("根据SQLite语义，GLOB匹配区分大小写")
 
             return safe_pattern, match_mode, limit_int, time_bounds_ns, notes
 
@@ -113,11 +113,11 @@ class SliceFinderTool(BaseTool):
 
             if process_name:
                 proc = str(process_name).strip().replace("'", "''")
-                # LIKE with wildcard support: treat '*' as '%'
+                # 支持通配符的LIKE：将'*'视为'%'
                 if "*" in proc:
                     proc_like = proc.replace("*", "%")
                 else:
-                    # If no wildcard provided, do contains match for ergonomics
+                    # 如果没有提供通配符，则进行包含匹配以提高易用性
                     proc_like = f"%{proc}%"
                 clauses.append(f"UPPER(p.name) LIKE UPPER('{proc_like}')")
 
@@ -142,7 +142,7 @@ class SliceFinderTool(BaseTool):
             where_clauses = _build_where_clauses()
             where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
-            # Common slice rows with joins to resolve thread/process context
+            # 具有连接以解析线程/进程上下文的常见切片行
             base_cte = (
                 "WITH slice_rows AS (\n"
                 "  SELECT s.id, s.ts, s.dur, s.depth, s.category, s.track_id, s.name AS slice_name,\n"
@@ -163,7 +163,7 @@ class SliceFinderTool(BaseTool):
             examples: List[Dict[str, Any]] = []
             notes: List[str] = list(initial_notes)
 
-            # Attempt to compute percentiles if available, using the CTE to avoid alias issues
+            # 如果可用，尝试计算百分位数，使用CTE避免别名问题
             agg_with_percentiles = (
                 base_cte
                 + "SELECT\n"
@@ -214,27 +214,27 @@ class SliceFinderTool(BaseTool):
                     "linkable": True,
                 }
 
-            # Try percentiles, fall back gracefully if unavailable
+            # 尝试百分位数，如果不可用则优雅回退
             tried_percentiles = False
             try:
                 tried_percentiles = True
                 for row in tp.query(agg_with_percentiles):
                     aggregates.append(_collect_aggs(row))
             except Exception as e:
-                # Detect missing quantile function
+                # 检测缺少的分位数函数
                 msg = str(e).lower()
                 if "no such function" in msg and "quantile" in msg:
                     notes.append("Percentile functions unavailable; p50/p90/p99 set to null")
                 else:
                     notes.append(f"Percentiles not computed: {e}")
-                # Fallback without percentiles
+                # 回退到无百分位数
                 try:
                     for row in tp.query(agg_fallback):
                         aggregates.append(_collect_aggs(row))
                 except Exception as e2:
                     raise ToolError("QUERY_FAILED", f"Aggregate query failed: {e2}")
 
-            # Examples: top-N by duration
+            # 示例：按持续时间的前N个
             examples_query = (
                 base_cte
                 + "SELECT\n"

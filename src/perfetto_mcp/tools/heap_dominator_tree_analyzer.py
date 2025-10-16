@@ -1,7 +1,7 @@
-"""Heap Dominator Tree Analyzer tool.
+"""堆支配树分析器工具。
 
-Analyzes the latest heap graph snapshot for a process and aggregates object
-instances by class to surface memory-hogging types with impact classification.
+分析进程的最新堆图快照，并按类聚合对象
+实例以显示具有影响分类的内存占用类型。
 """
 
 from __future__ import annotations
@@ -16,12 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class HeapDominatorTreeAnalyzerTool(BaseTool):
-    """Analyze heap dominator tree to identify memory-heavy classes.
+    """分析堆支配树以识别内存密集型类。
 
-    Produces a list of top classes by total self/native size (MB) from the latest
-    heap graph snapshot for the target process, including reachability metrics
-    when available. Falls back to a simplified query if some columns/modules are
-    unavailable in the trace.
+    从目标进程的最新堆图快照生成按总自身/本机大小(MB)排序的顶级类列表，
+    包括可用时的可达性指标。如果跟踪中某些列/模块不可用，则回退到简化查询。
     """
 
     def heap_dominator_tree_analyzer(
@@ -30,21 +28,21 @@ class HeapDominatorTreeAnalyzerTool(BaseTool):
         process_name: str,
         max_classes: int = 20,
     ) -> str:
-        """Analyze heap dominator tree for the given process.
+        """分析给定进程的堆支配树。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Exact process name to analyze.
+            要分析的精确进程名称。
         max_classes : int, optional
-            Maximum number of classes to return (1-50). Default: 20.
+            要返回的最大类数(1-50)。默认：20。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields:
+            包含字段的JSON信封：
             - processName, tracePath, success, error, result
             - result: {
                 totalCount,
@@ -67,7 +65,7 @@ class HeapDominatorTreeAnalyzerTool(BaseTool):
             safe_proc = process_name.replace("'", "''")
             notes: List[str] = []
 
-            # Primary query (as per spec), using dominator_tree module and extended columns
+            # 主要查询(根据规范)，使用dominator_tree模块和扩展列
             primary_sql = f"""
             INCLUDE PERFETTO MODULE android.memory.heap_graph.dominator_tree;
 
@@ -109,7 +107,7 @@ class HeapDominatorTreeAnalyzerTool(BaseTool):
             FROM dominator_analysis;
             """
 
-            # Fallback query: avoid module + columns that may not exist (native_size, reachability, root_distance)
+            # 回退查询：避免可能不存在的模块+列(native_size, reachability, root_distance)
             fallback_sql = f"""
             WITH latest_snapshot AS (
               SELECT MAX(graph_sample_ts) AS snapshot_ts
@@ -148,7 +146,7 @@ class HeapDominatorTreeAnalyzerTool(BaseTool):
 
             rows: List[Any] = []
 
-            # Try primary; if it fails due to missing module/columns, try fallback
+            # 尝试主要查询；如果由于缺少模块/列而失败，则尝试回退
             try:
                 rows = list(tp.query(primary_sql))
             except Exception as primary_err:
@@ -156,7 +154,7 @@ class HeapDominatorTreeAnalyzerTool(BaseTool):
                 logger.info("Primary dominator query failed, attempting fallback: %s", primary_err)
                 try:
                     rows = list(tp.query(fallback_sql))
-                    # Informative note about reduced columns
+                    # 关于减少列的信息性注释
                     notes.append(
                         "Reduced columns: native_size_mb/reachability/root_distance unavailable; used simplified query"
                     )
@@ -174,7 +172,7 @@ class HeapDominatorTreeAnalyzerTool(BaseTool):
                         details=f"primary_error={primary_err}; fallback_error={fb_err}",
                     )
 
-            # Format results
+            # 格式化结果
             classes: List[Dict[str, Any]] = []
             columns: Optional[List[str]] = None
             for r in rows:

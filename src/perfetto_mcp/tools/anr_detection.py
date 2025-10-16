@@ -1,11 +1,11 @@
-"""ANR detection tool for analyzing Application Not Responding events.
+"""ANR检测工具，用于分析应用程序无响应事件。
 
-Notes:
-- Requires android.anrs data source in the trace; otherwise returns ANR_DATA_UNAVAILABLE.
-- Severity heuristic: CRITICAL if GC events near ANR > 10; HIGH if main thread state at ANR
-  indicates sleep/IO wait (S/D) or GC > 5; MEDIUM otherwise. System-critical processes are
-  escalated to at least HIGH.
-- Parameter `min_duration_ms` is currently informational and not used to filter results.
+注意事项：
+- 需要跟踪文件中包含android.anrs数据源；否则返回ANR_DATA_UNAVAILABLE。
+- 严重性启发式：如果ANR附近的GC事件>10则为CRITICAL；如果ANR时主线程状态
+  指示睡眠/IO等待(S/D)或GC>5则为HIGH；否则为MEDIUM。系统关键进程
+  至少升级为HIGH。
+- 参数`min_duration_ms`目前仅为信息性，不用于过滤结果。
 """
 
 import json
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class AnrDetectionTool(BaseTool):
-    """Tool for detecting and analyzing ANR events in Perfetto traces."""
+    """用于检测和分析Perfetto跟踪中的ANR事件的工具。"""
 
     def detect_anrs(
         self,
@@ -27,12 +27,12 @@ class AnrDetectionTool(BaseTool):
         min_duration_ms: int = 5000,
         time_range: Optional[Dict[str, int]] = None,
     ) -> str:
-        """Detect ANR events and return a unified JSON envelope."""
+        """检测ANR事件并返回统一的JSON信封。"""
 
         def _execute_anr_detection(tp):
-            """Internal operation to execute ANR detection query."""
+            """执行ANR检测查询的内部操作。"""
 
-            # Build the SQL query based on the documentation
+            # 基于文档构建SQL查询
             sql_query = """
             INCLUDE PERFETTO MODULE android.anrs;
 
@@ -58,11 +58,11 @@ class AnrDetectionTool(BaseTool):
             WHERE 1=1
             """
 
-            # Add process name filter if specified
+            # 如果指定了进程名称过滤器，则添加
             if process_name:
                 sql_query += f" AND process_name GLOB '{process_name}'"
 
-            # Add time range filters if specified
+            # 如果指定了时间范围过滤器，则添加
             if time_range:
                 if 'start_ms' in time_range:
                     sql_query += f" AND ts >= {time_range['start_ms']} * 1e6"
@@ -71,11 +71,11 @@ class AnrDetectionTool(BaseTool):
 
             sql_query += " ORDER BY ts"
 
-            # Execute the query
+            # 执行查询
             try:
                 qr_it = tp.query(sql_query)
             except Exception as e:
-                # Check if it's an ANR module availability issue
+                # 检查是否为ANR模块可用性问题
                 error_msg = str(e).lower()
                 if 'android.anrs' in error_msg or 'no such table' in error_msg:
                     raise ToolError(
@@ -84,29 +84,29 @@ class AnrDetectionTool(BaseTool):
                     )
                 raise
 
-            # Collect and format results
+            # 收集并格式化结果
             anrs = []
             columns = None
 
             for row in qr_it:
-                # Get column names from the first row
+                # 从第一行获取列名
                 if columns is None:
                     columns = list(row.__dict__.keys())
 
-                # Convert row to dictionary
+                # 将行转换为字典
                 row_dict = format_query_result_row(row, columns)
 
-                # Convert timestamp from nanoseconds to milliseconds
+                # 将时间戳从纳秒转换为毫秒
                 if 'ts' in row_dict and row_dict['ts'] is not None:
                     row_dict['timestampMs'] = int(row_dict['ts'] / 1e6)
 
-                # Add severity analysis
+                # 添加严重性分析
                 severity = self._analyze_anr_severity(row_dict)
                 row_dict['severity'] = severity
 
                 anrs.append(row_dict)
 
-            # Result payload only; envelope is added by run_formatted
+            # 仅结果负载；信封由run_formatted添加
             return {
                 "totalCount": len(anrs),
                 "anrs": anrs,
@@ -121,25 +121,25 @@ class AnrDetectionTool(BaseTool):
 
     def _analyze_anr_severity(self, anr_data: Dict[str, Any]) -> str:
         """
-        Analyze the severity of an ANR event based on contextual data.
+        基于上下文数据分析ANR事件的严重性。
         
-        Args:
-            anr_data: Dictionary containing ANR event data
+        参数：
+            anr_data: 包含ANR事件数据的字典
             
-        Returns:
-            str: Severity level ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+        返回：
+            str: 严重性级别("CRITICAL", "HIGH", "MEDIUM", "LOW")
         """
-        # Start with base severity
+        # 从基础严重性开始
         severity = "MEDIUM"
         
-        # Check main thread state - blocked main thread is more severe
+        # 检查主线程状态 - 阻塞的主线程更严重
         main_thread_state = anr_data.get('main_thread_state', '')
         if main_thread_state in ['D', 'S']:  # Disk sleep or interruptible sleep
             severity = "HIGH"
         elif main_thread_state == 'R':  # Running - less severe, likely CPU bound
             severity = "MEDIUM"
         
-        # Check for GC pressure - high GC activity indicates memory issues
+        # 检查GC压力 - 高GC活动表示内存问题
         gc_events = anr_data.get('gc_events_near_anr', 0)
         if gc_events > 10:
             severity = "CRITICAL"
@@ -147,7 +147,7 @@ class AnrDetectionTool(BaseTool):
             if severity == "MEDIUM":
                 severity = "HIGH"
         
-        # Check process name for system critical processes
+        # 检查进程名称是否为系统关键进程
         process_name = anr_data.get('process_name', '')
         system_critical_processes = [
             'system_server', 'com.android.systemui', 'com.android.launcher'

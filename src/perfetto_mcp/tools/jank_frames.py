@@ -1,4 +1,4 @@
-"""Jank frames detection tool using Perfetto frame timeline data."""
+"""使用Perfetto帧时间线数据的卡顿帧检测工具。"""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class JankFramesTool(BaseTool):
-    """Tool for detecting janky frames with classification and context.
+    """用于检测卡顿帧并提供分类和上下文的工具。
 
-    Joins Android frame timeline and per-frame metrics to provide severity and
-    source classification (Application vs SurfaceFlinger), along with CPU/UI time.
+    连接Android帧时间线和每帧指标以提供严重性和
+    源分类(应用程序vs SurfaceFlinger)，以及CPU/UI时间。
     """
 
     def detect_jank_frames(
@@ -25,24 +25,24 @@ class JankFramesTool(BaseTool):
         jank_threshold_ms: float = 16.67,
         severity_filter: Optional[List[str]] = None,
     ) -> str:
-        """Detect janky frames for a given process.
+        """检测给定进程的卡顿帧。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Target process name (exact match as per query spec).
+            目标进程名称(根据查询规范精确匹配)。
         jank_threshold_ms : float, optional
-            Frame duration threshold in ms to consider a frame janky. Defaults to 16.67ms.
+            认为帧卡顿的帧持续时间阈值(毫秒)。默认为16.67毫秒。
         severity_filter : list[str] | None, optional
-            Optional list of jank severity types to include (e.g. ["severe", "moderate"]).
+            要包含的卡顿严重性类型的可选列表(例如["severe", "moderate"])。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields: processName, tracePath, success, error, result.
-            Result shape:
+            包含字段的JSON信封：processName, tracePath, success, error, result。
+            结果形状：
               {
                 totalCount: number,
                 frames: [
@@ -60,14 +60,14 @@ class JankFramesTool(BaseTool):
             if not process_name or not isinstance(process_name, str):
                 raise ToolError("INVALID_PARAMETERS", "process_name must be a non-empty string")
 
-            # Basic input hardening: escape single quotes
+            # 基本输入强化：转义单引号
             safe_proc = process_name.replace("'", "''")
 
-            # Build severity filter clause if provided
+            # 如果提供了严重性过滤器，则构建子句
             severity_clause = ""
             if severity_filter:
                 try:
-                    # Escape values and build an IN (...) list
+                    # 转义值并构建IN(...)列表
                     safe_vals = [f"'{str(v).replace("'", "''")}'" for v in severity_filter]
                     severity_clause = f" AND atl.jank_severity_type IN ({', '.join(safe_vals)})"
                 except Exception:

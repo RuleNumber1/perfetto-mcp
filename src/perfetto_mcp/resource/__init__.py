@@ -1,7 +1,7 @@
-"""MCP resource registration package.
+"""MCP资源注册包。
 
-Expose a single entrypoint `register_resources(mcp)` that wires up
-all MCP resources for the server.
+暴露单个入口点`register_resources(mcp)`，用于连接
+服务器的所有MCP资源。
 """
 
 from mcp.server.fastmcp import FastMCP
@@ -11,7 +11,7 @@ from .trace_analysis import register_trace_analysis_resource
 
 
 def register_resources(mcp: FastMCP) -> None:
-    """Register all MCP resources on the given server instance."""
+    """在给定的服务器实例上注册所有MCP资源。"""
     register_concepts_resource(mcp)
     register_trace_analysis_resource(mcp)
 

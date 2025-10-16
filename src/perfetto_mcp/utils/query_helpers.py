@@ -1,4 +1,4 @@
-"""Query helper utilities for SQL processing."""
+"""SQL处理的查询辅助工具。"""
 
 import os
 import logging
@@ -6,24 +6,24 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# Guardrail defaults (can be overridden via environment variables)
+# 防护栏默认值（可通过环境变量覆盖）
 DEFAULT_MAX_SCRIPT_BYTES = int(os.getenv("PERFETTO_MCP_MAX_SCRIPT_BYTES", "1000000"))
 DEFAULT_MAX_STATEMENTS = int(os.getenv("PERFETTO_MCP_MAX_STATEMENTS", "200"))
 
 
 def add_limit_to_query(sql_query: str, limit: int = 50) -> str:
-    """Add LIMIT clause to SQL query if it doesn't already have one.
+    """如果SQL查询没有LIMIT子句，则添加一个。
     
     Args:
-        sql_query: The SQL query string
-        limit: Maximum number of rows to return (default: 50)
+        sql_query: SQL查询字符串
+        limit: 返回的最大行数（默认：50）
         
     Returns:
-        str: Query with LIMIT clause added
+        str: 添加了LIMIT子句的查询
     """
     query_upper = sql_query.upper()
     if 'LIMIT' not in query_upper:
-        # Remove trailing semicolon if present
+        # 如果存在尾部分号，则移除
         if sql_query.rstrip().endswith(';'):
             sql_query = sql_query.rstrip()[:-1]
         sql_query = f"{sql_query} LIMIT {limit}"
@@ -32,10 +32,10 @@ def add_limit_to_query(sql_query: str, limit: int = 50) -> str:
 
 
 def _split_statements(sql_script: str) -> list[str]:
-    """Best-effort split of a SQL script into statements by semicolons.
+    """尽力将SQL脚本按分号分割成语句。
 
-    Handles single quotes, double quotes, line comments (--) and block comments (/* */)
-    to avoid splitting on semicolons inside those regions.
+    处理单引号、双引号、行注释（--）和块注释（/* */），
+    避免在这些区域内分割分号。
     """
     statements: list[str] = []
     current: list[str] = []
@@ -114,16 +114,16 @@ def _split_statements(sql_script: str) -> list[str]:
 
 
 def approximate_statement_count(sql_script: str) -> int:
-    """Return a best-effort count of statements in the script."""
+    """返回脚本中语句的最佳估计数量。"""
     if not sql_script:
         return 0
     return len(_split_statements(sql_script))
 
 
 def detect_last_statement_type(sql_script: str) -> str | None:
-    """Detect the first keyword of the last non-empty statement (uppercased).
+    """检测最后一个非空语句的第一个关键字（大写）。
 
-    Returns None if no statements are found.
+    如果没有找到语句，返回None。
     """
     statements = _split_statements(sql_script)
     if not statements:
@@ -142,9 +142,9 @@ def detect_last_statement_type(sql_script: str) -> str | None:
 
 
 def is_valid_perfetto_sql(sql_script: str, *, max_bytes: int = DEFAULT_MAX_SCRIPT_BYTES, max_statements: int | None = DEFAULT_MAX_STATEMENTS) -> tuple[bool, str | None]:
-    """Permissive validation for PerfettoSQL scripts.
+    """对PerfettoSQL脚本进行宽松验证。
 
-    Returns (ok, reason). "reason" is None when ok is True.
+    返回 (ok, reason)。当ok为True时，"reason"为None。
     """
     if not sql_script or not sql_script.strip():
         return False, "SQL script is empty"
@@ -161,7 +161,7 @@ def is_valid_perfetto_sql(sql_script: str, *, max_bytes: int = DEFAULT_MAX_SCRIP
         try:
             count = approximate_statement_count(sql_script)
         except Exception:
-            # If splitting fails, be safe and accept (TraceProcessor will error if needed)
+            # 如果分割失败，为了安全起见接受（如果需要，TraceProcessor会报错）
             count = 1
         if count > max_statements:
             return False, f"SQL script has {count} statements which exceeds max of {max_statements}"
@@ -170,7 +170,7 @@ def is_valid_perfetto_sql(sql_script: str, *, max_bytes: int = DEFAULT_MAX_SCRIP
 
 
 def validate_sql_query(sql_query: str) -> bool:
-    """Deprecated. Kept for backward-compatibility. Uses permissive script checks now."""
+    """已弃用。为向后兼容而保留。现在使用宽松的脚本检查。"""
     ok, _ = is_valid_perfetto_sql(sql_query)
     if not ok:
         logger.warning("SQL script rejected by guardrails")
@@ -178,19 +178,19 @@ def validate_sql_query(sql_query: str) -> bool:
 
 
 def format_query_result_row(row, columns: list) -> dict:
-    """Format a query result row into a dictionary.
+    """将查询结果行格式化为字典。
     
     Args:
-        row: Query result row object
-        columns: List of column names
+        row: 查询结果行对象
+        columns: 列名列表
         
     Returns:
-        dict: Row data as dictionary
+        dict: 行数据作为字典
     """
     row_dict = {}
     for col in columns:
         value = getattr(row, col)
-        # Convert any non-JSON-serializable types to strings
+        # 将任何非JSON可序列化的类型转换为字符串
         if value is not None and not isinstance(value, (str, int, float, bool)):
             value = str(value)
         row_dict[col] = value

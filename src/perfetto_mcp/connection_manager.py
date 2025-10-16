@@ -1,4 +1,4 @@
-"""Connection manager for persistent TraceProcessor connections."""
+"""用于持久化 TraceProcessor 连接的连接管理器。"""
 
 import threading
 import logging
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
-    """Manages persistent TraceProcessor connections with reconnection support."""
+    """管理持久化 TraceProcessor 连接，支持重连功能。"""
     
     def __init__(self):
         self._current_trace_path: Optional[str] = None
@@ -17,50 +17,50 @@ class ConnectionManager:
         self._lock = threading.Lock()  # Thread safety
         
     def get_connection(self, trace_path: str) -> TraceProcessor:
-        """Get or create connection for trace_path with automatic reconnection.
+        """获取或创建 trace_path 的连接，支持自动重连。
         
         Args:
-            trace_path: Path to the Perfetto trace file
+            trace_path: Perfetto 跟踪文件的路径
             
         Returns:
-            TraceProcessor: Active connection to the trace
+            TraceProcessor: 到跟踪的活动连接
             
         Raises:
-            FileNotFoundError: If trace file doesn't exist
-            ConnectionError: If connection fails
+            FileNotFoundError: 如果跟踪文件不存在
+            ConnectionError: 如果连接失败
         """
         with self._lock:
-            # If different path, close existing and open new
+            # 如果路径不同，关闭现有连接并打开新连接
             if self._current_trace_path != trace_path:
-                logger.info(f"Switching trace connection from {self._current_trace_path} to {trace_path}")
+                logger.info(f"切换跟踪连接从 {self._current_trace_path} 到 {trace_path}")
                 self._close_current_unsafe()
                 self._current_trace_path = trace_path
                 self._current_connection = self._create_connection(trace_path)
                 
-            # If same path but no connection, create new one
+            # 如果相同路径但没有连接，创建新连接
             elif self._current_connection is None:
-                logger.info(f"Creating new connection to {trace_path}")
+                logger.info(f"创建新连接到 {trace_path}")
                 self._current_connection = self._create_connection(trace_path)
                 
-            # Test connection health before returning
+            # 返回前测试连接健康状态
             if not self._is_connection_healthy():
-                logger.warning(f"Connection to {trace_path} appears unhealthy, reconnecting")
+                logger.warning(f"连接到 {trace_path} 的连接似乎不健康，重新连接")
                 self._current_connection = self._reconnect_unsafe(trace_path)
                 
             return self._current_connection
     
     def _create_connection(self, trace_path: str) -> TraceProcessor:
-        """Create a new TraceProcessor connection.
+        """创建新的 TraceProcessor 连接。
         
         Args:
-            trace_path: Path to the trace file
+            trace_path: 跟踪文件的路径
             
         Returns:
-            TraceProcessor: New connection
+            TraceProcessor: 新连接
             
         Raises:
-            FileNotFoundError: If trace file doesn't exist
-            ConnectionError: If connection fails
+            FileNotFoundError: 如果跟踪文件不存在
+            ConnectionError: 如果连接失败
         """
         try:
             tp = TraceProcessor(trace=trace_path)
@@ -77,70 +77,70 @@ class ConnectionManager:
             raise ConnectionError(f"Could not connect to trace processor: {e}")
     
     def _is_connection_healthy(self) -> bool:
-        """Check if the current connection is healthy.
+        """检查当前连接是否健康。
         
         Returns:
-            bool: True if connection is healthy, False otherwise
+            bool: 如果连接健康则为 True，否则为 False
         """
         if self._current_connection is None:
             return False
             
         try:
-            # Try a simple query to test connection health
+            # 尝试简单查询来测试连接健康状态
             qr_it = self._current_connection.query('SELECT 1 as test_query LIMIT 1;')
-            # Consume the iterator to ensure query executes
+            # 消费迭代器以确保查询执行
             list(qr_it)
             return True
         except Exception as e:
-            logger.warning(f"Connection health check failed: {e}")
+            logger.warning(f"连接健康检查失败: {e}")
             return False
     
     def _reconnect(self, trace_path: str) -> TraceProcessor:
-        """Reconnect to trace file after connection failure.
+        """在连接失败后重新连接到跟踪文件。
         
         Args:
-            trace_path: Path to the trace file
+            trace_path: 跟踪文件的路径
             
         Returns:
-            TraceProcessor: New connection
+            TraceProcessor: 新连接
             
         Raises:
-            ConnectionError: If reconnection fails
+            ConnectionError: 如果重连失败
         """
         with self._lock:
             return self._reconnect_unsafe(trace_path)
     
     def _reconnect_unsafe(self, trace_path: str) -> TraceProcessor:
-        """Reconnect without acquiring lock (internal use only).
+        """不获取锁进行重连（仅供内部使用）。
         
         Args:
-            trace_path: Path to the trace file
+            trace_path: 跟踪文件的路径
             
         Returns:
-            TraceProcessor: New connection
+            TraceProcessor: 新连接
         """
-        logger.info(f"Attempting to reconnect to {trace_path}")
+        logger.info(f"尝试重新连接到 {trace_path}")
         
-        # Close existing connection
+        # 关闭现有连接
         self._close_current_unsafe()
         
-        # Create new connection
+        # 创建新连接
         try:
             self._current_connection = self._create_connection(trace_path)
             self._current_trace_path = trace_path
-            logger.info(f"Successfully reconnected to {trace_path}")
+            logger.info(f"成功重新连接到 {trace_path}")
             return self._current_connection
         except Exception as e:
-            logger.error(f"Reconnection failed for {trace_path}: {e}")
-            raise ConnectionError(f"Reconnection failed: {e}")
+            logger.error(f"重连失败 {trace_path}: {e}")
+            raise ConnectionError(f"重连失败: {e}")
     
     def close_current(self):
-        """Close the current connection if it exists."""
+        """如果存在当前连接，则关闭它。"""
         with self._lock:
             self._close_current_unsafe()
     
     def _close_current_unsafe(self):
-        """Close current connection without acquiring lock (internal use only)."""
+        """不获取锁关闭当前连接（仅供内部使用）。"""
         if self._current_connection is not None:
             try:
                 logger.info(f"Closing connection to {self._current_trace_path}")
@@ -152,24 +152,24 @@ class ConnectionManager:
                 self._current_trace_path = None
     
     def cleanup(self):
-        """Cleanup method called by MCP server shutdown lifecycle."""
+        """清理方法，由 MCP 服务器关闭生命周期调用。"""
         logger.info("Cleaning up connection manager")
         self.close_current()
     
     def get_current_trace_path(self) -> Optional[str]:
-        """Get the currently connected trace path.
+        """获取当前连接的跟踪路径。
         
         Returns:
-            Optional[str]: Current trace path or None if no connection
+            Optional[str]: 当前跟踪路径，如果没有连接则为 None
         """
         with self._lock:
             return self._current_trace_path
     
     def is_connected(self) -> bool:
-        """Check if there's an active connection.
+        """检查是否存在活动连接。
         
         Returns:
-            bool: True if connected, False otherwise
+            bool: 如果已连接则为 True，否则为 False
         """
         with self._lock:
             return self._current_connection is not None

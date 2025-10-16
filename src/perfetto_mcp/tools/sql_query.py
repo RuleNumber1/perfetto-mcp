@@ -1,4 +1,4 @@
-"""SQL query tool for executing arbitrary queries on traces."""
+"""用于在跟踪上执行任意查询的SQL查询工具。"""
 
 import json
 import logging
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class SqlQueryTool(BaseTool):
-    """Tool for executing arbitrary SQL queries on Perfetto traces."""
+    """用于在Perfetto跟踪上执行任意SQL查询的工具。"""
 
     def execute_sql_query(self, trace_path: str, sql_query: str, process_name: Optional[str] = None) -> str:
-        """Execute a validated PerfettoSQL script and return a unified JSON envelope."""
-        # Permissive validation with guardrails (size / statement count)
+        """执行经过验证的PerfettoSQL脚本并返回统一的JSON信封。"""
+        # 带有防护措施的宽松验证(大小/语句计数)
         if not validate_sql_query(sql_query):
             envelope = self._make_envelope(
                 trace_path=trace_path,
@@ -35,11 +35,11 @@ class SqlQueryTool(BaseTool):
             return json.dumps(envelope, indent=2)
 
         def _execute_sql_operation(tp):
-            """Internal operation to execute SQL query and build result payload."""
-            # Execute the script as-is (no automatic LIMIT)
+            """内部操作，用于执行SQL查询并构建结果负载。"""
+            # 按原样执行脚本(无自动LIMIT)
             qr_it = tp.query(sql_query)
 
-            # Collect results
+            # 收集结果
             rows = []
             columns = None
 
@@ -49,7 +49,7 @@ class SqlQueryTool(BaseTool):
                 row_dict = format_query_result_row(row, columns)
                 rows.append(row_dict)
 
-            # Compute metadata
+            # 计算元数据
             try:
                 stmt_count = approximate_statement_count(sql_query)
             except Exception:
@@ -61,7 +61,7 @@ class SqlQueryTool(BaseTool):
 
             returns_rows = bool(columns)
 
-            # Result payload only; envelope is added by run_formatted
+            # 仅结果负载；信封由run_formatted添加
             payload = {
                 "query": sql_query,
                 "columns": columns if columns else [],

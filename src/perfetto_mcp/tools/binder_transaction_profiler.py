@@ -1,4 +1,4 @@
-"""Binder transaction profiler using android.binder module."""
+"""使用android.binder模块的Binder事务分析器。"""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class BinderTransactionProfilerTool(BaseTool):
-    """Analyze binder transaction performance and identify bottlenecks.
+    """分析Binder事务性能并识别瓶颈。
 
-    Uses the android.binder module to compute client/server latencies, overhead,
-    and optionally includes a breakdown of thread states during the transaction.
+    使用android.binder模块计算客户端/服务器延迟、开销，
+    并可选择包含事务期间线程状态的细分。
     """
 
     def binder_transaction_profiler(
@@ -28,30 +28,30 @@ class BinderTransactionProfilerTool(BaseTool):
         correlate_with_main_thread: bool = False,
         group_by: str | None = None,
     ) -> str:
-        """Profile binder transactions for a process as client or server.
+        """分析进程作为客户端或服务器的Binder事务。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_filter : str
-            Process name to match either as client or server process in binder txns.
+            在Binder事务中匹配客户端或服务器进程的进程名称。
         min_latency_ms : float, optional
-            Minimum client latency to include (ms). Default: 10.0.
+            要包含的最小客户端延迟(毫秒)。默认：10.0。
         include_thread_states : bool, optional
-            If true, includes top thread states per transaction (aggregated). Default: True.
+            如果为true，则包含每个事务的顶级线程状态(聚合)。默认：True。
         time_range : dict | None, optional
-            Optional window filter: {'start_ms': X, 'end_ms': Y}. Filters by client_ts in range.
+            可选窗口过滤器：{'start_ms': X, 'end_ms': Y}。按范围内的client_ts过滤。
         correlate_with_main_thread : bool, optional
-            If true, adds best-effort main-thread state summary for client main-thread txns.
+            如果为true，则为客户端主线程事务添加尽力而为的主线程状态摘要。
         group_by : str | None, optional
-            Aggregate view. One of: None (detailed rows), 'aidl', 'server_process'.
+            聚合视图。其中之一：None(详细行), 'aidl', 'server_process'。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields: processName, tracePath, success, error, result.
-            Result shape (detailed rows when group_by is None):
+            包含字段的JSON信封：processName, tracePath, success, error, result。
+            结果形状(group_by为None时的详细行)：
               {
                 totalCount: number,
                 timeRangeMs?: { start_ms?, end_ms? },
@@ -66,7 +66,7 @@ class BinderTransactionProfilerTool(BaseTool):
                 filters: { process_filter, min_latency_ms, include_thread_states, correlate_with_main_thread, group_by }
               }
 
-            When group_by is provided, returns aggregates instead of transactions:
+            当提供group_by时，返回聚合而不是事务：
               {
                 totalCount: number,
                 timeRangeMs?: { start_ms?, end_ms? },
@@ -83,12 +83,12 @@ class BinderTransactionProfilerTool(BaseTool):
             except Exception:
                 raise ToolError("INVALID_PARAMETERS", "min_latency_ms must be numeric")
 
-            # Validate group_by
+            # 验证group_by
             valid_groups = {None, "aidl", "server_process"}
             if group_by not in valid_groups:
                 raise ToolError("INVALID_PARAMETERS", "group_by must be one of: None, 'aidl', 'server_process'")
 
-            # Validate time_range
+            # 验证time_range
             start_ns = None
             end_ns = None
             time_range_ms: dict | None = None
@@ -118,7 +118,7 @@ class BinderTransactionProfilerTool(BaseTool):
 
             safe_proc = process_filter.replace("'", "''")
 
-            # Build the conditional projection for thread states
+            # 为线程状态构建条件投影
             if include_thread_states:
                 top_states_sql = (
                     "(SELECT GROUP_CONCAT(thread_state || ':' || CAST(state_duration_ms AS TEXT) || 'ms', ', ') "
@@ -129,7 +129,7 @@ class BinderTransactionProfilerTool(BaseTool):
             else:
                 top_states_sql = "NULL AS top_thread_states"
 
-            # Optional best-effort main thread state correlation for client main-thread transactions
+            # 客户端主线程事务的可选尽力而为主线程状态关联
             if correlate_with_main_thread:
                 client_main_states_sql = (
                     "CASE WHEN ba.is_main_thread THEN "
@@ -143,7 +143,7 @@ class BinderTransactionProfilerTool(BaseTool):
             else:
                 client_main_states_sql = "NULL AS main_thread_top_states"
 
-            # Time window conditions
+            # 时间窗口条件
             time_predicates = []
             if start_ns is not None:
                 time_predicates.append(f"client_ts >= {start_ns}")
@@ -208,7 +208,7 @@ class BinderTransactionProfilerTool(BaseTool):
             """
 
             try:
-                # If an aggregate view is requested, run a different projection
+                # 如果请求聚合视图，则运行不同的投影
                 if group_by is None:
                     rows = list(tp.query(sql_query))
                 else:
@@ -279,7 +279,7 @@ class BinderTransactionProfilerTool(BaseTool):
                     rows = list(tp.query(group_sql))
             except Exception as e:
                 msg = str(e)
-                # Common failures when binder module/views are unavailable
+                # Binder模块/视图不可用时的常见故障
                 if (
                     "android_binder_txns" in msg
                     or "android.binder" in msg

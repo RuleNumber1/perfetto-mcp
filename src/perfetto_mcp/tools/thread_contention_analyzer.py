@@ -1,4 +1,4 @@
-"""Thread contention analyzer using android.monitor_contention module."""
+"""使用 android.monitor_contention 模块的线程争用分析器。"""
 
 from __future__ import annotations
 
@@ -12,14 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class ThreadContentionAnalyzerTool(BaseTool):
-    """Identify thread contention and synchronization bottlenecks.
+    """识别线程争用和同步瓶颈。
 
-    Aggregates monitor contention events (Java synchronized blocks/methods) and
-    groups contentions by blocked/blocking thread pairs and methods to compute
-    contention statistics and severity. Supports time-scoped analysis,
-    minimum-duration filtering, example events, and optional per-thread
-    blocked-state breakdown. Provides explicit metadata about analysis source
-    and fallbacks used.
+    聚合监控争用事件（Java同步块/方法）并按阻塞/阻塞线程对和方法分组计算争用统计数据和严重性。
+    支持时间范围分析、最小持续时间过滤、示例事件和可选的每线程阻塞状态细分。
+    提供关于分析来源和使用的回退方法的明确元数据。
     """
 
     def thread_contention_analyzer(
@@ -32,22 +29,22 @@ class ThreadContentionAnalyzerTool(BaseTool):
         include_examples: bool = False,
         limit: int = 80,
     ) -> str:
-        """Analyze thread contention for a given process.
+        """分析给定进程的线程争用情况。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Exact process name to analyze.
+            要分析的精确进程名称。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields: processName, tracePath, success, error, result.
-            Result shape:
+            包含字段的JSON信封：processName, tracePath, success, error, result。
+            结果格式：
               {
-                totalCount: number,
+                totalCount: 数字,
                 contentions: [
                   {
                     blocked_thread_name, blocking_thread_name, short_blocking_method_name,
@@ -57,14 +54,14 @@ class ThreadContentionAnalyzerTool(BaseTool):
                 ],
                 filters: { process_name },
                 analysisSource: "monitor_contention" | "scheduler_inferred",
-                primaryDataUnavailable: bool,
-                usesWakerLinkage?: bool,
-                usedSchedBlockedReason?: bool,
-                fallbackNotice?: str,
+                primaryDataUnavailable: 布尔值,
+                usesWakerLinkage?: 布尔值,
+                usedSchedBlockedReason?: 布尔值,
+                fallbackNotice?: 字符串,
                 timeRangeMs?: { start_ms, end_ms } | null,
                 thresholds?: { min_block_ms },
-                dataDependencies?: [str],
-                notes?: [str],
+                dataDependencies?: [字符串],
+                notes?: [字符串],
                 examples?: [...],
                 blocked_state_breakdown?: [...],
                 top_dstate_functions?: [...]

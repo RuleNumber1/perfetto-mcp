@@ -1,4 +1,4 @@
-"""Memory leak detector tool using heap growth and heap graph aggregation."""
+"""使用堆增长和堆图聚合的内存泄漏检测工具。"""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryLeakDetectorTool(BaseTool):
-    """Detect memory leak patterns via heap growth rate and suspicious classes.
+    """通过堆增长率和可疑类检测内存泄漏模式。
 
-    Produces two sections:
-    - growth: Average/max growth rate (MB/min) and leak indicator count
-    - suspiciousClasses: Top classes by dominated heap size from heap graph aggregation
+    产生两个部分：
+    - growth: 平均/最大增长率(MB/分钟)和泄漏指示器计数
+    - suspiciousClasses: 按支配堆大小排序的顶级类，来自堆图聚合
     """
 
     def memory_leak_detector(
@@ -25,23 +25,23 @@ class MemoryLeakDetectorTool(BaseTool):
         growth_threshold_mb_per_min: float = 5.0,
         analysis_duration_ms: int = 60_000,
     ) -> str:
-        """Detect memory leak signals for a process.
+        """检测进程的内存泄漏信号。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Exact process name to analyze.
+            要分析的精确进程名称。
         growth_threshold_mb_per_min : float, optional
-            Threshold for average growth rate to flag potential leaks. Default: 5 MB/min.
+            标记潜在泄漏的平均增长率阈值。默认：5 MB/分钟。
         analysis_duration_ms : int, optional
-            Analyze the first N milliseconds from trace start. Default: 60,000 ms.
+            从跟踪开始分析前N毫秒。默认：60,000毫秒。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields:
+            包含字段的JSON信封：
             - processName, tracePath, success, error, result
             - result: {
                 growth: { avgGrowthRateMbPerMin, maxGrowthRateMbPerMin, sampleCount, leakIndicatorCount },
@@ -65,7 +65,7 @@ class MemoryLeakDetectorTool(BaseTool):
             safe_proc = process_name.replace("'", "''")
 
             # ------------------
-            # Growth rate summary
+            # 增长率摘要
             # ------------------
             growth_summary: Dict[str, Any] = {
                 "avgGrowthRateMbPerMin": None,
@@ -128,7 +128,7 @@ class MemoryLeakDetectorTool(BaseTool):
                 notes.append(f"growthAnalysis unavailable: {e}")
 
             # -----------------------
-            # Suspicious classes list
+            # 可疑类列表
             # -----------------------
             suspicious_classes: List[Dict[str, Any]] = []
 

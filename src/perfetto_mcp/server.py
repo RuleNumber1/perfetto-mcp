@@ -242,36 +242,36 @@ def create_server() -> FastMCP:
         include_frequency_analysis: bool = True,
     ) -> str:
         """
-        Profile CPU usage by thread to identify performance bottlenecks.
+        按线程分析 CPU 使用情况以识别性能瓶颈。
 
-        USE THIS WHEN: Investigating high battery drain, thermal throttling, slow performance, 
-        or determining if your app is CPU-bound. Essential for understanding whether performance 
-        issues are due to excessive CPU usage or other factors (I/O, lock contention, etc.).
+        使用场景：调查高电池消耗、热节流、性能缓慢，
+        或确定应用是否受 CPU 限制时使用。对于理解性能问题
+        是由于过度 CPU 使用还是其他因素（I/O、锁竞争等）至关重要。
 
-        SHOWS PER-THREAD:
-        - CPU percentage of trace duration
-        - Total runtime and scheduling counts
-        - Average/max time slices (long slices = good, many short = thrashing)
-        - CPUs used (indicates thread migration)
-        - Optional: CPU frequency analysis if trace has DVFS data
+        按线程显示：
+        - 跟踪持续时间的 CPU 百分比
+        - 总运行时间和调度计数
+        - 平均/最大时间片（长时间片 = 好，许多短时间片 = 抖动）
+        - 使用的 CPU（指示线程迁移）
+        - 可选：如果跟踪有 DVFS 数据，添加 CPU 频率分析
 
-        KEY METRICS:
-        - Main thread >80% CPU: UI work needs offloading
-        - Background thread >90%: Consider chunking work
-        - Many threads with low %: Possible over-threading
-        - High schedule count with low CPU%: Lock contention likely
+        关键指标：
+        - 主线程 >80% CPU：需要卸载 UI 工作
+        - 后台线程 >90%：考虑分块处理工作
+        - 许多低百分比线程：可能过度线程化
+        - 高调度计数但低 CPU%：可能锁竞争
 
-        PROCESS PATTERNS:
-        - process_name: Supports wildcards ("com.example.*")
-        - group_by: Currently "thread" only
-        - include_frequency_analysis: Adds CPU frequency correlation
+        进程模式：
+        - process_name: 支持通配符（"com.example.*"）
+        - group_by: 目前仅支持 "thread"
+        - include_frequency_analysis: 添加 CPU 频率关联
 
-        INTERPRETATION: High CPU doesn't always mean inefficient code - could indicate thermal 
-        throttling keeping CPU at low frequencies. Compare with cpu_frequency data. If CPU usage 
-        is low but performance is poor, investigate lock contention or I/O blocking instead.
+        解释：高 CPU 并不总是意味着低效代码 - 可能表示热节流
+        使 CPU 保持在低频率。与 cpu_frequency 数据比较。如果 CPU 使用率
+        低但性能差，改为调查锁竞争或 I/O 阻塞。
 
-        OUTPUT: Ranked thread list by CPU usage, with main thread flagged. Use this to identify 
-        which specific threads need optimization.
+        输出：按 CPU 使用率排序的线程列表，主线程标记。使用此功能识别
+        哪些特定线程需要优化。
         """
         return cpu_util_tool.cpu_utilization_profiler(
             trace_path,
@@ -288,38 +288,38 @@ def create_server() -> FastMCP:
         severity_filter: list[str] | None = None,
     ) -> str:
         """
-        Find dropped/janky frames with detailed performance classification.
+        查找掉帧/卡顿帧，提供详细的性能分类。
 
-        USE THIS WHEN: UI feels sluggish, scrolling stutters, animations aren't smooth, or 
-        you need to quantify UI performance issues. Jank directly impacts user experience - 
-        even a few janky frames can make an app feel unprofessional.
+        使用场景：UI 感觉迟缓、滚动卡顿、动画不流畅，或
+        需要量化 UI 性能问题时使用。卡顿直接影响用户体验 -
+        即使只有几帧卡顿也会让应用感觉不专业。
 
-        DETECTS:
-        - Frames exceeding deadline (16.67ms for 60fps, 8.33ms for 120fps)
-        - Jank source: Application vs SurfaceFlinger (system compositor)
-        - Severity: mild, moderate, severe based on deadline overrun
-        - CPU/UI thread time per frame
+        检测：
+        - 超过截止时间的帧（60fps 为 16.67ms，120fps 为 8.33ms）
+        - 卡顿来源：应用 vs SurfaceFlinger（系统合成器）
+        - 严重性：基于截止时间超出的轻度、中度、重度
+        - 每帧的 CPU/UI 线程时间
 
-        PARAMETERS:
-        - process_name: Exact app name from trace
-        - jank_threshold_ms: 16.67 (60fps) or 8.33 (120fps) 
-        - severity_filter: ["severe", "moderate"] to focus on worst cases
+        参数：
+        - process_name: 跟踪中的确切应用名称
+        - jank_threshold_ms: 16.67（60fps）或 8.33（120fps）
+        - severity_filter: ["severe", "moderate"] 以专注于最坏情况
 
-        OUTPUT INCLUDES:
-        - frame_id, timestamp, duration for correlation
-        - overrun_ms: How much the frame missed deadline
-        - jank_type and source (app vs system)
-        - CPU/UI time breakdown
-        - Classification: SMOOTH/JANK/BIG_JANK/HUGE_JANK
+        输出包括：
+        - frame_id、timestamp、duration 用于关联
+        - overrun_ms: 帧错过截止时间的程度
+        - jank_type 和 source（应用 vs 系统）
+        - CPU/UI 时间分解
+        - 分类：SMOOTH/JANK/BIG_JANK/HUGE_JANK
 
-        INTERPRETATION:
-        - Occasional jank (<1% frames): Normal
-        - Consistent jank (>5% frames): User-visible problem
-        - Jank clusters: Check for GC, I/O, or lock contention at those times
-        - SurfaceFlinger jank: System issue, not your app
+        解释：
+        - 偶尔卡顿（<1% 帧）：正常
+        - 持续卡顿（>5% 帧）：用户可见问题
+        - 卡顿集群：检查这些时间点的 GC、I/O 或锁竞争
+        - SurfaceFlinger 卡顿：系统问题，不是您的应用
 
-        FOLLOW-UP: Use frame timestamps to correlate with execute_sql_query for what was 
-        happening during janky frames (GC events, binder calls, CPU frequency).
+        后续：使用帧时间戳与 execute_sql_query 关联，了解
+        卡顿帧期间发生了什么（GC 事件、binder 调用、CPU 频率）。
         """
         return jank_frames_tool.detect_jank_frames(
             trace_path,
@@ -331,37 +331,37 @@ def create_server() -> FastMCP:
     @mcp.tool()
     def frame_performance_summary(trace_path: str, process_name: str) -> str:
         """
-        High-level frame performance metrics and overall UI smoothness assessment.
+        高级帧性能指标和整体 UI 流畅度评估。
 
-        USE THIS WHEN: Need a quick performance rating, establishing baseline metrics, comparing 
-        before/after optimization, or getting an overview before deep-diving into specific frames. 
-        This gives you the "forest view" while detect_jank_frames shows individual "trees".
+        使用场景：需要快速性能评级、建立基线指标、比较
+        优化前后，或在深入特定帧之前获取概览时使用。
+        这为您提供"森林视图"，而 detect_jank_frames 显示单个"树木"。
 
-        PROVIDES:
-        - Total frame count and jank statistics
-        - Jank rate percentage (key metric for UI smoothness)
-        - Frame categories: slow, jank, big jank, huge jank
-        - CPU time distribution: average, max, P95, P99
-        - Performance rating: EXCELLENT/GOOD/ACCEPTABLE/POOR
+        提供：
+        - 总帧数和卡顿统计
+        - 卡顿率百分比（UI 流畅度的关键指标）
+        - 帧类别：慢速、卡顿、大卡顿、巨大卡顿
+        - CPU 时间分布：平均、最大、P95、P99
+        - 性能评级：EXCELLENT/GOOD/ACCEPTABLE/POOR
 
-        PERFORMANCE STANDARDS:
-        - EXCELLENT: <1% jank rate (console-quality smoothness)
-        - GOOD: 1-5% jank rate (most users won't notice)
-        - ACCEPTABLE: 5-10% jank rate (power users will complain)
-        - POOR: >10% jank rate (all users affected)
+        性能标准：
+        - EXCELLENT: <1% 卡顿率（控制台级流畅度）
+        - GOOD: 1-5% 卡顿率（大多数用户不会注意到）
+        - ACCEPTABLE: 5-10% 卡顿率（高级用户会抱怨）
+        - POOR: >10% 卡顿率（所有用户受影响）
 
-        KEY INSIGHTS:
-        - P99 CPU time: Your worst-case frame cost
-        - Max CPU time: Spike detection (GC, loading, etc.)
-        - Big/huge jank counts: Critical frames that users definitely noticed
+        关键洞察：
+        - P99 CPU 时间：最坏情况帧成本
+        - 最大 CPU 时间：峰值检测（GC、加载等）
+        - 大/巨大卡顿计数：用户肯定注意到的关键帧
 
-        TYPICAL WORKFLOW:
-        1. Run this first for overall assessment
-        2. If POOR/ACCEPTABLE, use detect_jank_frames for specific bad frames
-        3. Correlate bad frame timestamps with other events
+        典型工作流程：
+        1. 首先运行此工具进行整体评估
+        2. 如果 POOR/ACCEPTABLE，使用 detect_jank_frames 查找特定坏帧
+        3. 将坏帧时间戳与其他事件关联
 
-        NOTE: Different content types have different standards. Games might accept 5% jank 
-        during action scenes, while a reading app should maintain <1% always.
+        注意：不同内容类型有不同的标准。游戏可能在动作场景中接受 5% 卡顿，
+        而阅读应用应始终保持 <1%。
         """
         return frame_summary_tool.frame_performance_summary(trace_path, process_name)
 
@@ -373,42 +373,42 @@ def create_server() -> FastMCP:
         analysis_duration_ms: int = 60_000,
     ) -> str:
         """
-        Detect memory leaks through heap growth patterns and suspicious class analysis.
+        通过堆增长模式和可疑类分析检测内存泄漏。
 
-        USE THIS WHEN: Investigating OOM crashes, gradual performance degradation over time, 
-        user reports of app becoming sluggish after extended use, or high memory warnings. 
-        Memory leaks are often subtle - small leaks can take hours to cause visible problems.
+        使用场景：调查 OOM 崩溃、随时间逐渐性能下降、
+        用户报告应用长时间使用后变慢，或高内存警告时使用。
+        内存泄漏通常很微妙 - 小泄漏可能需要数小时才会导致可见问题。
 
-        ANALYZES TWO DIMENSIONS:
-        1. Growth pattern: RSS memory trend over time
-        2. Heap suspects: Classes with excessive retained memory
+        分析两个维度：
+        1. 增长模式：RSS 内存随时间趋势
+        2. 堆可疑对象：保留内存过多的类
 
-        DETECTION CRITERIA:
-        - Sustained growth >5MB/min (default threshold)
-        - Large dominated heap sizes for specific classes
-        - Correlation between growth rate and heap suspects
+        检测标准：
+        - 持续增长 >5MB/分钟（默认阈值）
+        - 特定类的支配堆大小过大
+        - 增长率和堆可疑对象之间的相关性
 
-        PARAMETERS:
-        - process_name: Target app
-        - growth_threshold_mb_per_min: Leak indicator (default 5.0)
-        - analysis_duration_ms: Time window (default 60 seconds)
+        参数：
+        - process_name: 目标应用
+        - growth_threshold_mb_per_min: 泄漏指示器（默认 5.0）
+        - analysis_duration_ms: 时间窗口（默认 60 秒）
 
-        OUTPUT:
-        - Growth metrics: average/max growth rate, leak indicator count
-        - Suspicious classes: Ranked by dominated size with instance counts
-        - Memory impact classification per class
+        输出：
+        - 增长指标：平均/最大增长率、泄漏指示器计数
+        - 可疑类：按支配大小排序，包含实例计数
+        - 每个类的内存影响分类
 
-        COMMON LEAK PATTERNS:
-        - Bitmaps/images not recycled: Large dominated_size_mb
-        - Listener registration without unregistration: High instance_count
-        - Static collections growing unbounded: Increasing over time
-        - Context leaks: Activity/View classes in heap
+        常见泄漏模式：
+        - Bitmaps/图像未回收：大的 dominated_size_mb
+        - 监听器注册但未注销：高 instance_count
+        - 静态集合无限增长：随时间增加
+        - 上下文泄漏：堆中的 Activity/View 类
 
-        LIMITATIONS: Requires heap graph data in trace. Without it, only RSS growth analysis 
-        is available. For detailed leak paths, follow up with heap_dominator_tree_analyzer.
+        限制：需要跟踪中的堆图数据。没有它，只有 RSS 增长分析
+        可用。对于详细的泄漏路径，后续使用 heap_dominator_tree_analyzer。
 
-        FALSE POSITIVES: Caches and pools may show growth that stabilizes. Check if growth 
-        continues indefinitely or plateaus.
+        误报：缓存和池可能显示稳定增长。检查增长是否
+        无限继续或趋于平稳。
         """
         return memory_leak_tool.memory_leak_detector(
             trace_path,
@@ -424,44 +424,44 @@ def create_server() -> FastMCP:
         max_classes: int = 20,
     ) -> str:
         """
-        Deep-dive into heap memory to identify specific memory-hogging classes.
+        深入堆内存以识别特定的内存占用类。
 
-        USE THIS WHEN: After memory_leak_detector finds issues, investigating high baseline 
-        memory usage, or optimizing memory footprint. This shows exactly which classes are 
-        retaining the most memory and preventing garbage collection.
+        使用场景：在 memory_leak_detector 发现问题后，调查高基线
+        内存使用，或优化内存占用时使用。这准确显示哪些类
+        保留最多内存并阻止垃圾收集。
 
-        ANALYZES:
-        - Latest heap graph snapshot in trace
-        - Dominator relationships (what's keeping objects alive)
-        - Self vs native memory per class
-        - Reachability and GC root distance
+        分析：
+        - 跟踪中的最新堆图快照
+        - 支配关系（什么保持对象存活）
+        - 每个类的自身 vs 本地内存
+        - 可达性和 GC 根距离
 
-        OUTPUT PER CLASS:
-        - instance_count: Number of objects
-        - self_size_mb: Java heap memory
-        - native_size_mb: Native allocations
-        - total_size_mb: Combined impact
-        - memory_impact: CRITICAL (>50MB), WARNING (>20MB), NORMAL
+        每个类的输出：
+        - instance_count: 对象数量
+        - self_size_mb: Java 堆内存
+        - native_size_mb: 本地分配
+        - total_size_mb: 组合影响
+        - memory_impact: CRITICAL (>50MB)、WARNING (>20MB)、NORMAL
 
-        KEY INSIGHTS:
-        - High instance count + low individual size = collection leak
-        - Low instance count + high size = large object problem
-        - High native_size: Bitmaps, native buffers
-        - Low root_distance: Directly referenced from GC roots
+        关键洞察：
+        - 高实例计数 + 低个体大小 = 集合泄漏
+        - 低实例计数 + 高大小 = 大对象问题
+        - 高 native_size: Bitmaps、本地缓冲区
+        - 低 root_distance: 直接从 GC 根引用
 
-        COMMON FINDINGS:
-        - Bitmap/Drawable: Image caching issues
-        - Activity/Fragment: Context leaks
-        - ArrayList/HashMap: Unbounded collections
-        - Custom classes: App-specific retention
+        常见发现：
+        - Bitmap/Drawable: 图像缓存问题
+        - Activity/Fragment: 上下文泄漏
+        - ArrayList/HashMap: 无界集合
+        - 自定义类：应用特定保留
 
-        OPTIMIZATION TARGETS: Focus on CRITICAL/WARNING classes first. A single fix can 
-        often recover tens of MBs.
+        优化目标：首先关注 CRITICAL/WARNING 类。单个修复通常
+        可以恢复数十 MB。
 
-        REQUIREMENTS: Requires heap graph data (Debug.dumpHprofData or similar). If extended 
-        columns/modules are missing, the tool falls back to a simplified query (omits native_size, 
-        reachability, root_distance) and adds a note. If no heap graph exists, returns 
-        HEAP_GRAPH_UNAVAILABLE.
+        要求：需要堆图数据（Debug.dumpHprofData 或类似）。如果扩展
+        列/模块缺失，工具回退到简化查询（省略 native_size、
+        reachability、root_distance）并添加说明。如果没有堆图存在，返回
+        HEAP_GRAPH_UNAVAILABLE。
         """
         return heap_dom_tool.heap_dominator_tree_analyzer(trace_path, process_name, max_classes)
 
@@ -476,63 +476,63 @@ def create_server() -> FastMCP:
         limit: int = 80,
     ) -> str:
         """
-        Find thread synchronization bottlenecks with automatic fallback analysis  - the hidden cause of most ANRs.
+        查找线程同步瓶颈，支持自动回退分析 - 大多数 ANR 的隐藏原因。
 
-        USE THIS WHEN: ANRs with unclear cause, UI freezes despite low CPU usage, deadlock
-        suspicion, or whenever performance problems don't correlate with CPU/memory metrics.
-        This tool often reveals the true cause when other metrics look normal.
+        使用场景：原因不明的 ANR、CPU 使用率低但 UI 冻结、死锁
+        怀疑，或性能问题与 CPU/内存指标不相关时使用。
+        当其他指标看起来正常时，此工具通常揭示真正原因。
 
-        CRITICAL INSIGHT: Thread contention is the #1 cause of ANRs, more common than CPU
-        overload or memory pressure. A single poorly-placed synchronized block can freeze
-        an entire app.
+        关键洞察：线程竞争是 ANR 的首要原因，比 CPU
+        过载或内存压力更常见。单个放置不当的同步块可以冻结
+        整个应用。
 
-        ANALYSIS MODES:
-        - PRIMARY: Uses android.monitor_contention data when available for precise Java lock details
-        - FALLBACK: Automatically falls back to scheduler-based inference using thread_state,
-          sched_waking, and optionally sched_blocked_reason tables when monitor contention is missing
+        分析模式：
+        - 主要：当可用时使用 android.monitor_contention 数据进行精确 Java 锁详情
+        - 回退：当监控竞争数据缺失时，自动回退到基于调度器的推断，使用 thread_state、
+          sched_waking 和可选的 sched_blocked_reason 表
 
-        DETECTS:
-        - Which threads are blocked and what's blocking them
-        - Specific methods holding locks (when available)
-        - Wait duration and frequency
-        - Concurrent waiter counts (deadlock risk indicator)
-        - D-state blocking attribution via sched_blocked_reason (when available)
+        检测：
+        - 哪些线程被阻塞以及什么阻塞它们
+        - 持有锁的特定方法（当可用时）
+        - 等待持续时间和频率
+        - 并发等待者计数（死锁风险指示器）
+        - 通过 sched_blocked_reason 的 D 状态阻塞归因（当可用时）
 
-        SEVERITY CLASSIFICATION:
-        - CRITICAL: Main thread blocked >100ms
-        - HIGH: Any thread blocked >500ms or frequent contention
-        - MEDIUM: Moderate blocking on worker threads
-        - LOW: Minor contention, not user-visible
+        严重性分类：
+        - CRITICAL: 主线程阻塞 >100ms
+        - HIGH: 任何线程阻塞 >500ms 或频繁竞争
+        - MEDIUM: 工作线程上的中等阻塞
+        - LOW: 轻微竞争，用户不可见
 
-        OUTPUT METADATA:
-        - analysisSource: "monitor_contention" (primary) or "scheduler_inferred" (fallback)
-        - usesWakerLinkage: true if waker-thread relationships were available
-        - usedSchedBlockedReason: true if D-state function attribution was available
-        - primaryDataUnavailable: true when fallback was used
-        - fallbackNotice: human-readable explanation when fallback was triggered
+        输出元数据：
+        - analysisSource: "monitor_contention"（主要）或 "scheduler_inferred"（回退）
+        - usesWakerLinkage: 如果唤醒者-线程关系可用则为 true
+        - usedSchedBlockedReason: 如果 D 状态函数归因可用则为 true
+        - primaryDataUnavailable: 当使用回退时为 true
+        - fallbackNotice: 回退触发时的人类可读解释
 
-        COMMON ANTI-PATTERNS FOUND:
-        - Synchronized singleton access on hot paths
-        - Database locks held during network I/O
-        - SharedPreferences.commit() on main thread
-        - Nested synchronized blocks (deadlock risk)
-        - UI thread waiting for background thread locks
+        发现的常见反模式：
+        - 热路径上的同步单例访问
+        - 网络 I/O 期间持有数据库锁
+        - 主线程上的 SharedPreferences.commit()
+        - 嵌套同步块（死锁风险）
+        - UI 线程等待后台线程锁
 
-        RECOMMENDED TRACE CONFIGS:
-        - Primary: Include android.monitor_contention data source
-        - Fallback: Include linux.ftrace with sched/sched_switch, sched/sched_waking,
-          and optionally sched/sched_blocked_reason events
+        推荐的跟踪配置：
+        - 主要：包含 android.monitor_contention 数据源
+        - 回退：包含 linux.ftrace 与 sched/sched_switch、sched/sched_waking、
+          和可选的 sched/sched_blocked_reason 事件
 
-        PARAMETERS:
-        - process_name: Target app/process (supports exact name; use find_slices/process metadata tools for discovery)
-        - time_range: {'start_ms': X, 'end_ms': Y} to focus analysis on a specific window (e.g., app startup, ANR)
-        - min_block_ms: Ignore waits shorter than this threshold (default 50ms)
-        - include_per_thread_breakdown: Include per-thread S/D totals and percentages
-        - include_examples: Include top example waits for illustration
-        - limit: Cap for groups/examples/breakdown rows (default 80)
+        参数：
+        - process_name: 目标应用/进程（支持确切名称；使用 find_slices/process 元数据工具进行发现）
+        - time_range: {'start_ms': X, 'end_ms': Y} 将分析集中在特定窗口（例如，应用启动、ANR）
+        - min_block_ms: 忽略短于此阈值的等待（默认 50ms）
+        - include_per_thread_breakdown: 包含每个线程的 S/D 总计和百分比
+        - include_examples: 包含顶部示例等待用于说明
+        - limit: 组/示例/分解行的上限（默认 80）
 
-        FIX PRIORITY: Usually easy fixes with huge impact. Moving work outside synchronized
-        blocks or using concurrent structures often solves the problem completely.
+        修复优先级：通常是影响巨大的简单修复。将工作移出同步块
+        或使用并发结构通常完全解决问题。
         """
         return thread_contention_tool.thread_contention_analyzer(
             trace_path,
@@ -555,45 +555,45 @@ def create_server() -> FastMCP:
         group_by: str | None = None,
     ) -> str:
         """
-        Analyze cross-process (IPC) communication performance and bottlenecks.
+        分析跨进程（IPC）通信性能和瓶颈。
 
-        USE THIS WHEN: Slow system UI interactions, input lag, delays in content providers 
-        or system services, or when ANRs involve system process communication. Binder is 
-        Android's core IPC mechanism - slow binder calls directly cause ANRs.
+        使用场景：系统 UI 交互缓慢、输入延迟、内容提供者
+        或系统服务延迟，或当 ANR 涉及系统进程通信时使用。Binder 是
+        Android 的核心 IPC 机制 - 慢速 binder 调用直接导致 ANR。
 
-        MEASURES:
-        - Client-side latency (includes waiting + server processing)
-        - Server-side processing time
-        - Overhead (client latency - server time = IPC overhead)
-        - Main thread impact (critical for ANRs)
+        测量：
+        - 客户端延迟（包括等待 + 服务器处理）
+        - 服务器端处理时间
+        - 开销（客户端延迟 - 服务器时间 = IPC 开销）
+        - 主线程影响（对 ANR 关键）
 
-        PARAMETERS:
-        - process_filter: Match as client OR server
-        - min_latency_ms: Focus on slow calls (default 10ms)
-        - include_thread_states: Show what threads were doing during call
-        - time_range: Optional {'start_ms': X, 'end_ms': Y} to scope analysis window
-        - correlate_with_main_thread: If true, add best-effort main-thread state summary
-        - group_by: One of None, 'aidl', 'server_process' for aggregated views
+        参数：
+        - process_filter: 匹配为客户端或服务器
+        - min_latency_ms: 专注于慢速调用（默认 10ms）
+        - include_thread_states: 显示调用期间线程在做什么
+        - time_range: 可选的 {'start_ms': X, 'end_ms': Y} 以限定分析窗口
+        - correlate_with_main_thread: 如果为 true，添加尽力而为的主线程状态摘要
+        - group_by: None、'aidl'、'server_process' 之一用于聚合视图
 
-        KEY METRICS:
-        - is_main_thread=true + latency>100ms = ANR risk
-        - High overhead = system scheduling issues
-        - Synchronous calls on main thread = architecture problem
+        关键指标：
+        - is_main_thread=true + latency>100ms = ANR 风险
+        - 高开销 = 系统调度问题
+        - 主线程上的同步调用 = 架构问题
 
-        COMMON PROBLEMATIC PATTERNS:
-        - ContentResolver queries on main thread
-        - System service calls during UI drawing
-        - Synchronous LocationManager/SensorManager calls
-        - PackageManager operations on main thread
+        常见问题模式：
+        - 主线程上的 ContentResolver 查询
+        - UI 绘制期间的系统服务调用
+        - 同步 LocationManager/SensorManager 调用
+        - 主线程上的 PackageManager 操作
 
-        OUTPUT: When group_by is None, returns transaction rows with latencies and overhead_ratio. 
-        When grouped, returns aggregates by AIDL method or server process.
+        输出：当 group_by 为 None 时，返回具有延迟和 overhead_ratio 的事务行。
+        分组时，按 AIDL 方法或服务器进程返回聚合。
 
-        ARCHITECTURE INSIGHT: High binder latency often indicates the need to make calls 
-        asynchronous or cache results. Consider using AsyncTask, coroutines, or caching layers.
+        架构洞察：高 binder 延迟通常表明需要使调用
+        异步或缓存结果。考虑使用 AsyncTask、协程或缓存层。
 
-        NOTE: Some system binder calls are unavoidable. Focus on reducing frequency and moving 
-        off main thread where possible.
+        注意：某些系统 binder 调用是不可避免的。专注于减少频率和
+        在可能的情况下移出主线程。
         """
         return binder_txn_tool.binder_transaction_profiler(
             trace_path,
@@ -614,21 +614,21 @@ def create_server() -> FastMCP:
         min_duration_ms: float | int | None = None,
     ) -> str:
         """
-        Identify the heaviest main-thread slices for a process, ordered by duration.
+        识别进程中最重的主线程切片，按持续时间排序。
 
-        USE THIS WHEN: You need the fastest view into what the UI thread is spending time on.
-        This is ideal for ANR and jank triage, highlighting long-running callbacks and phases.
+        使用场景：需要最快了解 UI 线程在哪些地方花费时间时使用。
+        这非常适合 ANR 和卡顿分类，突出显示长时间运行的回调和阶段。
 
-        PARAMETERS:
-        - process_name: Target app/process (supports GLOB like "com.example.*").
-        - time_range: {'start_ms': X, 'end_ms': Y} to focus on specific periods.
-        - limit: Max number of slices to return (default 80).
-        - min_duration_ms: Only include slices >= threshold.
+        参数：
+        - process_name: 目标应用/进程（支持 GLOB 如 "com.example.*"）。
+        - time_range: {'start_ms': X, 'end_ms': Y} 以专注于特定时期。
+        - limit: 返回的最大切片数（默认 80）。
+        - min_duration_ms: 仅包含 >= 阈值的切片。
 
-        OUTPUT:
-        - hotspots: Top slices with ids, timestamps, durations, and context (thread/process/track).
-        - summary: Totals and whether main-thread flag or heuristic was used.
-        - notes: Data availability and fallback information.
+        输出：
+        - hotspots: 顶部切片，包含 id、时间戳、持续时间和上下文（线程/进程/轨道）。
+        - summary: 总计以及是否使用主线程标志或启发式方法。
+        - notes: 数据可用性和回退信息。
         """
         return main_thread_hotspot_tool.main_thread_hotspot_slices(
             trace_path,
@@ -638,12 +638,12 @@ def create_server() -> FastMCP:
             min_duration_ms,
         )
 
-    # Setup cleanup using atexit
+    # 使用 atexit 设置清理
     atexit.register(connection_manager.cleanup)
 
-    # Register MCP resources in dedicated module
+    # 在专用模块中注册 MCP 资源
     register_resources(mcp)
 
-    logger.info("Perfetto MCP server created with connection management")
+    logger.info("Perfetto MCP 服务器已创建，包含连接管理")
 
     return mcp

@@ -1,4 +1,4 @@
-"""Register Perfetto trace analysis documentation as a URL resource."""
+"""将Perfetto跟踪分析文档注册为URL资源。"""
 
 import logging
 from mcp.server.fastmcp import FastMCP
@@ -7,9 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 def register_trace_analysis_resource(mcp: FastMCP) -> None:
-    """Register URL resource for Perfetto trace analysis getting started guide.
+    """为Perfetto跟踪分析入门指南注册URL资源。
     
-    - Points to official Perfetto documentation
+    - 指向官方Perfetto文档
       URI: resource://perfetto-docs/trace-analysis-getting-started
     """
     
@@ -21,7 +21,7 @@ def register_trace_analysis_resource(mcp: FastMCP) -> None:
         mime_type="text/markdown",
     )
     def get_trace_analysis_docs() -> str:
-        """Return URL reference to the official Perfetto trace analysis documentation."""
+        """返回指向官方Perfetto跟踪分析文档的URL引用。"""
         return """# Perfetto Trace Analysis Getting Started
 
 This resource points to the official Perfetto documentation for trace analysis.

@@ -1,4 +1,4 @@
-"""CPU utilization profiler tool with per-thread breakdown and optional DVFS analysis."""
+"""CPU利用率分析器工具，具有每线程细分和可选的DVFS分析。"""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class CpuUtilizationProfilerTool(BaseTool):
-    """Tool for profiling CPU utilization for a process.
+    """用于分析进程CPU利用率的工具。
 
-    Provides per-thread CPU runtime, usage percentage over the trace, and scheduling statistics.
-    Optionally augments results with CPU frequency (DVFS) summaries when available.
+    提供每线程CPU运行时间、跟踪期间的利用率百分比和调度统计信息。
+    在可用时可选地使用CPU频率(DVFS)摘要增强结果。
     """
 
     def cpu_utilization_profiler(
@@ -24,25 +24,25 @@ class CpuUtilizationProfilerTool(BaseTool):
         group_by: str = "thread",
         include_frequency_analysis: bool = True,
     ) -> str:
-        """Profile CPU utilization for a given process.
+        """分析给定进程的CPU利用率。
 
-        Parameters
+        参数
         ----------
         trace_path : str
-            Path to the Perfetto trace file.
+            Perfetto跟踪文件路径。
         process_name : str
-            Target process name (supports GLOB patterns, e.g. "com.example.*").
+            目标进程名称(支持GLOB模式，例如"com.example.*")。
         group_by : str, optional
-            Currently only "thread" is supported. Defaults to "thread".
+            目前仅支持"thread"。默认为"thread"。
         include_frequency_analysis : bool, optional
-            When True, includes average CPU frequency summary (kHz) and per-CPU details
-            if DVFS counters are available. Defaults to True.
+            当为True时，如果DVFS计数器可用，则包含平均CPU频率摘要(kHz)和每CPU详细信息。
+            默认为True。
 
-        Returns
+        返回
         -------
         str
-            JSON envelope with fields: processName, tracePath, success, error, result
-            Result shape:
+            包含字段的JSON信封：processName, tracePath, success, error, result
+            结果形状：
               {
                 processName: str,
                 groupBy: "thread",
@@ -70,7 +70,7 @@ class CpuUtilizationProfilerTool(BaseTool):
 
             safe_proc = process_name.replace("'", "''")
 
-            # Core per-thread CPU utilization query
+            # 核心每线程CPU利用率查询
             cpu_query = f"""
             INCLUDE PERFETTO MODULE linux.cpu.utilization.process;
             SELECT 
@@ -109,7 +109,7 @@ class CpuUtilizationProfilerTool(BaseTool):
                     }
                 )
 
-            # Summaries
+            # 摘要
             runtime_seconds_total = float(total_runtime_ns / 1e9)
             cpu_percent_total = float(sum(t.get("cpuPercent", 0.0) or 0.0 for t in threads))
 
@@ -132,15 +132,15 @@ class CpuUtilizationProfilerTool(BaseTool):
         return self.run_formatted(trace_path, process_name, _op)
 
     # -------------------------------
-    # Helpers
+    # 助手
     # -------------------------------
     def _query_frequency_summary(self, tp) -> Optional[Dict[str, Any]]:
-        """Query CPU frequency summary using DVFS counters if present.
+        """如果存在，使用DVFS计数器查询CPU频率摘要。
 
-        Falls back to cpu_counter_track/counter if android.dvfs is unavailable.
-        Returns a dict with avg and per-CPU stats, or None if not available.
+        如果android.dvfs不可用，则回退到cpu_counter_track/counter。
+        返回包含平均值和每CPU统计信息的字典，如果不可用则返回None。
         """
-        # Try android.dvfs first
+        # 首先尝试android.dvfs
         dvfs_sql = """
         INCLUDE PERFETTO MODULE android.dvfs;
         SELECT cpu,
@@ -173,7 +173,7 @@ class CpuUtilizationProfilerTool(BaseTool):
                 logger.warning(f"DVFS frequency query failed: {e}")
                 return None
 
-        # Fallback to cpu_counter_track if dvfs data unavailable
+        # 如果dvfs数据不可用，则回退到cpu_counter_track
         if not per_cpu:
             fallback_sql = """
             SELECT ct.cpu AS cpu,
@@ -204,7 +204,7 @@ class CpuUtilizationProfilerTool(BaseTool):
         if not per_cpu:
             return None
 
-        # Average across CPUs
+        # 跨CPU平均
         try:
             avg_all = sum(item["avgKHz"] for item in per_cpu) / max(1, len(per_cpu))
         except Exception:

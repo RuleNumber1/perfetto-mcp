@@ -1,4 +1,4 @@
-"""Perfetto MCP Tools - Individual tool implementations for trace analysis."""
+"""Perfetto MCP 工具 - 用于跟踪分析的独立工具实现。"""
 
 from .base import BaseTool, ToolError
 from .find_slices import SliceFinderTool
