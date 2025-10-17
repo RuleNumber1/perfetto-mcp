@@ -70,11 +70,11 @@ class ThreadContentionAnalyzerTool(BaseTool):
 
         def _op(tp):
             if not process_name or not isinstance(process_name, str):
-                raise ToolError("INVALID_PARAMETERS", "process_name must be a non-empty string")
+                raise ToolError("INVALID_PARAMETERS", "process_name 必须为非空的字符串")
 
             safe_proc = process_name.replace("'", "''")
 
-            # Parse time range
+            # 解析时间范围
             start_ns = None
             end_ns = None
             notes: List[str] = []
@@ -86,18 +86,20 @@ class ThreadContentionAnalyzerTool(BaseTool):
                         start_ns = int(float(start_ms) * 1_000_000)
                         end_ns = int(float(end_ms) * 1_000_000)
                 except Exception:
-                    notes.append("Invalid time_range provided; ignoring")
+                    notes.append("你提供了不合规的时间范围值，这将被无视")
                     start_ns = None
                     end_ns = None
             else:
-                notes.append("time_range not supplied; scanned whole trace")
+                notes.append("未提供time_range参数; 即将扫描整个trace文件")
 
-            # Thresholds and limits
+            # 阈值和限制 Thresholds and limits
             min_block_ns = int(float(min_block_ms) * 1_000_000)
             example_limit = int(limit)
             group_limit = int(limit)
 
-            # Build primary (monitor_contention) SQL with filters
+            # 构建主要的(monitor_contention) SQL查询并添加过滤器
+            # 接下来要构建基于android.monitor_contention模块的主要SQL查询，
+            # 并应用各种过滤条件（如进程名称、时间范围、最小阻塞时间等）
             where_clauses = [f"upid = (SELECT upid FROM process WHERE name = '{safe_proc}')"]
             if start_ns is not None and end_ns is not None:
                 where_clauses.append(f"(ts + dur >= {start_ns} AND ts <= {end_ns})")
@@ -143,6 +145,15 @@ class ThreadContentionAnalyzerTool(BaseTool):
             """
 
             def _heuristic_is_main(thread_name: str | None) -> bool:
+                """
+                通过启发式方法判断给定的线程名称是否代表主线程。
+                
+                参数:
+                    thread_name (str | None): 线程名称，可能为 None。
+                
+                返回:
+                    bool: 如果线程名称中包含 "main"（不区分大小写），则返回 True；否则返回 False。
+                """
                 if not thread_name:
                     return False
                 try:
@@ -151,32 +162,55 @@ class ThreadContentionAnalyzerTool(BaseTool):
                     return False
 
             try:
+                # 执行 SQL 查询并将结果转换为列表
                 rows = list(tp.query(primary_sql))
+                # 初始化一个空列表，用于存储线程争用数据
                 contentions: List[Dict[str, Any]] = []
+                # 初始化列名为 None，稍后从查询结果中获取
                 columns = None
+                # 遍历查询结果的每一行
                 for r in rows:
+                    # 如果列名未初始化，则从第一行获取列名
                     if columns is None:
                         columns = list(r.__dict__.keys())
+                    # 格式化当前行的数据为字典
                     item = format_query_result_row(r, columns)
-                    # Add severity and heuristic main thread flag
+                    # 获取被阻塞线程的名称
                     blocked_name = item.get("blocked_thread_name")
+                    # 判断被阻塞线程是否是主线程
                     blocked_is_main = _heuristic_is_main(blocked_name)
+                    # 获取最大阻塞时间（毫秒），若不存在则默认为 0.0
                     max_blocked_ms = float(item.get("max_blocked_ms") or 0.0)
+                    # 获取平均阻塞时间（毫秒），若不存在则默认为 0.0
                     avg_blocked_ms = float(item.get("avg_blocked_ms") or 0.0)
+                    # 获取总阻塞时间（毫秒），若不存在则默认为 0.0
                     total_blocked_ms = float(item.get("total_blocked_ms") or 0.0)
+                    # 将是否为主线程的标志添加到当前数据项中
                     item["blocked_is_main_thread"] = blocked_is_main
+                    # 根据阻塞时间和是否为主线程计算严重性等级
                     item["severity"] = self._classify_severity(blocked_is_main, max_blocked_ms, avg_blocked_ms, total_blocked_ms)
+                    # 将当前数据项添加到列表中
                     contentions.append(item)
 
+                # 构造最终的结果字典
                 result: Dict[str, Any] = {
+                    # 总争用事件数量
                     "totalCount": len(contentions),
+                    # 争用事件列表
                     "contentions": contentions,
+                    # 过滤器参数（进程名称）
                     "filters": {"process_name": process_name},
+                    # 分析来源
                     "analysisSource": "monitor_contention",
+                    # 标记主数据是否可用
                     "primaryDataUnavailable": False,
+                    # 时间范围（毫秒），若未提供则为 None
                     "timeRangeMs": (time_range if (time_range and isinstance(time_range, dict)) else None),
+                    # 阻塞时间阈值（毫秒）
                     "thresholds": {"min_block_ms": float(min_block_ms)},
+                    # 数据依赖项
                     "dataDependencies": ["android.monitor_contention"],
+                    # 附加说明
                     "notes": notes,
                 }
 
