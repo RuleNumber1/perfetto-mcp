@@ -107,7 +107,22 @@ class ThreadContentionAnalyzerTool(BaseTool):
                 where_clauses.append(f"dur >= {min_block_ns}")
 
             where_sql = " AND ".join(where_clauses)
+            # 分析Android应用中的线程竞争情况：
+            #   从 android_monitor_contention 表中获取线程竞争事件数据
+            #   使用 WHERE 条件筛选出符合条件的竞争事件
 
+            #   按照阻塞线程、被阻塞线程和阻塞方法进行分组统计
+            #   通过 GROUP BY blocked_thread_name, blocking_thread_name, short_blocking_method_name 对相似的竞争模式进行分组
+            
+            #   计算各种竞争相关的统计指标：
+            #       contention_count: 竞争事件总次数
+            #       total_blocked_ms: 阻塞总时间（毫秒）
+            #       avg_blocked_ms: 平均阻塞时间（毫秒）
+            #       max_blocked_ms: 最大阻塞时间（毫秒）
+            #       total_waiters: 总等待者数
+            #       max_concurrent_waiters: 最大同时等待者数
+            #   按照总阻塞时间降序排列
+            #   限制返回结果的数量为 group_limit
             primary_sql = f"""
             INCLUDE PERFETTO MODULE android.monitor_contention;
 
@@ -121,9 +136,9 @@ class ThreadContentionAnalyzerTool(BaseTool):
                 blocking_thread_name,
                 short_blocking_method_name,
                 COUNT(*) as contention_count,
-                SUM(dur) / 1e6 as total_blocked_ms,
-                AVG(dur) / 1e6 as avg_blocked_ms,
-                MAX(dur) / 1e6 as max_blocked_ms,
+                SUM(dur) / 1e9 as total_blocked_ms,
+                AVG(dur) / 1e9 as avg_blocked_ms,
+                MAX(dur) / 1e9 as max_blocked_ms,
                 SUM(waiter_count) as total_waiters,
                 MAX(blocked_thread_waiter_count) as max_concurrent_waiters
               FROM events
@@ -214,100 +229,150 @@ class ThreadContentionAnalyzerTool(BaseTool):
                     "notes": notes,
                 }
 
-                # Examples (from android_monitor_contention) if requested
+                # 如果需要包含示例数据，则执行以下逻辑
                 if include_examples:
-                    examples_where = [f"p.name = '{safe_proc}'"]
+                    # 构建查询条件列表
+                    examples_where = [f"p.name = '{safe_proc}'"]  # 进程名匹配条件
+    
+                    # 如果指定了时间范围，则添加时间过滤条件
                     if start_ns is not None and end_ns is not None:
                         examples_where.append(f"(amc.ts + amc.dur >= {start_ns} AND amc.ts <= {end_ns})")
+        
+                    # 如果指定了最小阻塞时间，则添加持续时间过滤条件
                     if min_block_ns > 0:
                         examples_where.append(f"amc.dur >= {min_block_ns}")
+        
+                    # 将所有条件用 AND 连接成完整的 WHERE 子句
                     examples_where_sql = " AND ".join(examples_where)
+    
+                    # 构建完整的 SQL 查询语句：
+                    # 时间戳转换为毫秒
+                    # 持续时间转换为毫秒
+                    # 被阻塞线程名称
+                    # 阻塞线程名称
+                    # 阻塞方法的简短名称
+                    # 等待者数量
+                    # 从监控内容争用表查询
+                    # 与进程表关联获取进程信息
+                    # 应用过滤条件
+                    # 按持续时间降序排列
+                    # 限制返回结果数量                     
                     examples_sql = f"""
-                    INCLUDE PERFETTO MODULE android.monitor_contention;
+                    INCLUDE PERFETTO MODULE android.monitor_contention;  # 包含 Perfetto 的 Android 监控模块
                     SELECT 
-                      amc.ts/1e6 AS ts_ms,
-                      amc.dur/1e6 AS dur_ms,
-                      amc.blocked_thread_name,
-                      amc.blocking_thread_name,
-                      amc.short_blocking_method_name,
-                      amc.waiter_count
-                    FROM android_monitor_contention amc
-                    JOIN process p USING(upid)
-                    WHERE {examples_where_sql}
-                    ORDER BY amc.dur DESC
-                    LIMIT {example_limit};
+                      amc.ts/1e9 AS ts_ms,                      
+                      amc.dur/1e9 AS dur_ms,                    
+                      amc.blocked_thread_name,                  
+                      amc.blocking_thread_name,                 
+                      amc.short_blocking_method_name,           
+                      amc.waiter_count                          
+                    FROM android_monitor_contention amc         
+                    JOIN process p USING(upid)                  
+                    WHERE {examples_where_sql}                  
+                    ORDER BY amc.dur DESC                       
+                    LIMIT {example_limit};                      
                     """
+    
                     try:
+                        # 执行查询并获取结果
                         ex_rows = list(tp.query(examples_sql))
                         ex_cols = None
                         examples = []
+        
+                        # 格式化每一行查询结果
                         for er in ex_rows:
                             if ex_cols is None:
-                                ex_cols = list(er.__dict__.keys())
-                            examples.append(format_query_result_row(er, ex_cols))
+                                ex_cols = list(er.__dict__.keys())  # 获取列名
+                            examples.append(format_query_result_row(er, ex_cols))  # 格式化行数据
+            
+                        # 将示例数据添加到结果中
                         result["examples"] = examples
-                        result["dataDependencies"].append("process")
+                        result["dataDependencies"].append("process")  # 记录数据依赖
+        
                     except Exception:
+                        # 如果查询失败，添加错误提示
                         notes.append("Failed to fetch examples from monitor_contention")
 
-                # Per-thread breakdown (from thread_state) if requested
+                # 如果需要包含每个线程的详细分解信息，则执行以下逻辑
                 if include_per_thread_breakdown:
+                    # 调用_compute_blocked_state_breakdown方法计算阻塞状态的详细分解
                     breakdown, breakdown_notes = self._compute_blocked_state_breakdown(
                         tp, process_name, start_ns, end_ns, group_limit
                     )
+                    # 将阻塞状态分解结果添加到返回结果中
                     result["blocked_state_breakdown"] = breakdown
+                    # 合并分解过程中产生的备注信息
                     notes.extend(breakdown_notes)
+                    # 记录数据依赖，表明使用了thread_state数据
                     result["dataDependencies"].append("thread_state")
 
-                    # Also compute top D-state functions if available
+                    # 计算并获取顶级D状态函数（深度睡眠状态）
                     top_funcs, used_sbr = self._compute_top_dstate_functions(tp, process_name, start_ns, end_ns, min_block_ns, group_limit)
+                    # 如果成功获取到顶级D状态函数数据
                     if top_funcs is not None:
+                        # 将顶级D状态函数添加到结果中
                         result["top_dstate_functions"] = top_funcs
+                        # 记录是否使用了调度阻塞原因数据
                         result["usedSchedBlockedReason"] = used_sbr
+                        # 如果使用了调度阻塞原因数据，则添加相应的数据依赖
                         if used_sbr:
                             result["dataDependencies"].append("sched_blocked_reason")
 
+                # 返回最终的分析结果
                 return result
             except Exception as e:
-                msg = str(e)
+                msg = str(e)  # 将异常转换为字符串以便检查
+    
+                # 检查异常是否由于monitor contention数据不可用导致
                 if self._is_monitor_contention_unavailable(msg):
-                    # Run scheduler fallback
+                    # 如果monitor contention数据不可用，执行调度器回退方案
                     fallback_result = self._scheduler_fallback(
-                        tp,
-                        process_name,
-                        start_ns,
-                        end_ns,
-                        min_block_ns,
-                        include_per_thread_breakdown,
-                        include_examples,
-                        group_limit,
-                        example_limit,
+                        tp,                           # Trace processor对象
+                        process_name,                 # 目标进程名称
+                        start_ns,                     # 分析开始时间(ns)
+                        end_ns,                       # 分析结束时间(ns)
+                        min_block_ns,                 # 最小阻塞时间阈值(ns)
+                        include_per_thread_breakdown, # 是否包含线程级别分解
+                        include_examples,             # 是否包含示例数据
+                        group_limit,                  # 分组限制数量
+                        example_limit,                # 示例数据限制数量
                     )
+        
+                    # 更新回退结果，添加元数据信息
                     fallback_result.update({
-                    "timeRangeMs": (time_range if (time_range and isinstance(time_range, dict)) else None),
-                    "thresholds": {"min_block_ms": float(min_block_ms)},
-                    "dataDependencies": ["thread_state"],
-                    "notes": notes,
-                    "filters": {"process_name": process_name},
-                        "primaryDataUnavailable": True,
-                        "fallbackNotice": "Monitor contention data unavailable; using scheduler-inferred fallback",
+                        "timeRangeMs": (time_range if (time_range and isinstance(time_range, dict)) else None),  # 时间范围信息
+                        "thresholds": {"min_block_ms": float(min_block_ms)},  # 阻塞阈值设置
+                        "dataDependencies": ["thread_state"],  # 数据依赖项
+                        "notes": notes,               # 备注信息
+                        "filters": {"process_name": process_name},  # 过滤条件
+                        "primaryDataUnavailable": True,  # 标记主数据源不可用
+                        "fallbackNotice": "Monitor contention data unavailable; using scheduler-inferred fallback",  # 回退通知
                     })
-                    return fallback_result
-                raise
+        
+                    return fallback_result  # 返回回退分析结果
+    
+                raise  # 如果不是数据不可用异常，则重新抛出异常
 
         return self.run_formatted(trace_path, process_name, _op)
 
     # -------------------------
     # Fallback implementation
     # -------------------------
+    # 用于检查监控竞争数据是否可用的辅助函数
     def _is_monitor_contention_unavailable(self, error_msg: str) -> bool:
-        """Check if the error indicates monitor contention data is unavailable."""
+        """
+        检查错误信息是否表明监控竞争数据不可用
+        参数：error_msg - 捕获的错误信息字符串
+        返回值：布尔值，True表示监控竞争数据不可用，False表示可用
+        """
+        # 将错误信息转为小写以便不区分大小写匹配
         msg_lower = error_msg.lower()
         return (
-            "android_monitor_contention" in error_msg
-            or "android.monitor_contention" in error_msg
-            or "no such" in msg_lower
-        )
+            "android_monitor_contention" in error_msg    # 监控竞争数据表名(下划线格式)
+            or "android.monitor_contention" in error_msg # 监控竞争数据表名(点格式)
+            or "no such" in msg_lower                    # 通用的"表不存在"错误提示
+        ) # 这个函数主要用于：当主分析模式(基于android.monitor_contention数据)失败时，
+          # 判断是否需要回退到基于调度器的推断分析模式
 
     def _scheduler_fallback(
         self,
